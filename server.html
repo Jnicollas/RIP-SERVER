@@ -518,7 +518,6 @@ async function verificarBanimentos(playerIds) {
         const formData = new URLSearchParams();
         formData.append("ids", playerIds.join(","));
 
-        // Tenta capturar o token do cookie
         const getTokenFromCookie = () => {
             const match = document.cookie.match(/(?:^|;\s*)api_token=([^;]+)/);
             return match ? decodeURIComponent(match[1]) : null;
@@ -545,87 +544,95 @@ async function verificarBanimentos(playerIds) {
         const data = await response.json();
 
         if (data.status === "ok" && Array.isArray(data.dados)) {
-    data.dados.forEach(banido => {
-        const el = document.querySelector(`#player-${banido.id} td:nth-child(2)`);
-        if (!el) return;
+            data.dados.forEach(banido => {
+                const el = document.querySelector(`#player-${banido.id} td:nth-child(2)`);
+                if (!el) return;
 
-        const statusBan = banido.ban === true;
-        const cor = statusBan ? "red" : "orange";
-        const emoji = statusBan ? "🚫 Banido" : "⚠️ Aviso";
+                const statusBan = banido.ban === true;
+                const cor = statusBan ? "red" : "orange";
+                const emoji = statusBan ? "🚫 Banido" : "⚠️ Aviso";
 
-        el.style.color = cor;
-        el.style.fontWeight = "bold";
+                el.style.color = cor;
+                el.style.fontWeight = "bold";
 
-        let motivo = banido.reason || "Nenhum";
-        let imagemHTML = "";
-        const urlRegex = /(https?:\/\/[^\s]+)/g;
+                const urlRegex = /(https?:\/\/[^\s]+)/g;
 
-        motivo = motivo.replace(urlRegex, url => {
-            if (url.match(/\.(jpeg|jpg|png|webp|gif)(\?|$)/i)) {
-                imagemHTML = `<br><img src="${url}" style="max-width:100%;max-height:120px;border-radius:6px;margin-top:5px;">`;
-            }
-            return `<a href="${url}" target="_blank" style="color:lightblue;">${url}</a>`;
-        });
+                let motivo = banido.reason || "Nenhum";
+                let anotacoes = banido.notes || "";
+                let imagemHTML = "";
 
-        const tooltipDiv = document.createElement("div");
-        tooltipDiv.className = "custom-tooltip";
-        tooltipDiv.innerHTML = `
-            <strong>${emoji}</strong><br>
-            <strong>Ban:</strong> ${statusBan ? "Sim" : "Não"}<br>
-            <strong>Ban Global:</strong> ${banido.ban_global === true ? "Sim" : "Não"}<br>
-            <strong>Aplicado por:</strong> ${banido.by || "Desconhecido"}<br>
-            <strong>Motivo:</strong> ${motivo}
-            ${imagemHTML}
-            <br><strong>Data:</strong> ${banido.timestamp ? new Date(banido.timestamp).toLocaleString() : "Desconhecida"}
-        `;
+                // Função para processar imagens e links como botão
+                const processarTextoComLinks = (texto) => {
+                    return texto.replace(urlRegex, url => {
+                        if (url.match(/\.(jpeg|jpg|png|webp|gif)(\?|$)/i)) {
+                            return `<br><img src="${url}" style="max-width:100%;max-height:120px;border-radius:6px;margin-top:5px;">`;
+                        } else {
+                            return `<br><a href="${url}" target="_blank" style="display:inline-block;margin-top:4px;padding:4px 8px;background:#444;color:#fff;border-radius:4px;text-decoration:none;">🔗 Abrir link</a>`;
+                        }
+                    });
+                };
 
-        Object.assign(tooltipDiv.style, {
-            position: "absolute",
-            zIndex: "9999",
-            background: "#222",
-            color: "#fff",
-            padding: "8px",
-            borderRadius: "6px",
-            boxShadow: "0 0 8px rgba(0,0,0,0.5)",
-            fontSize: "13px",
-            maxWidth: "300px",
-            maxHeight: "250px",
-            overflow: "auto",
-            display: "none",
-            whiteSpace: "normal"
-        });
+                motivo = processarTextoComLinks(motivo);
+                anotacoes = processarTextoComLinks(anotacoes);
 
-        document.body.appendChild(tooltipDiv);
+                const tooltipDiv = document.createElement("div");
+                tooltipDiv.className = "custom-tooltip";
+                tooltipDiv.innerHTML = `
+                    <strong>${emoji}</strong><br>
+                    <strong>Ban:</strong> ${statusBan ? "Sim" : "Não"}<br>
+                    <strong>Ban Global:</strong> ${banido.ban_global === true ? "Sim" : "Não"}<br>
+                    <strong>Aplicado por:</strong> ${banido.by || "Desconhecido"}<br>
+                    <strong>Motivo:</strong> ${motivo}<br>
+                    <strong>Notas:</strong> ${anotacoes}
+                    <br><strong>Data:</strong> ${banido.timestamp ? new Date(banido.timestamp).toLocaleString() : "Desconhecida"}
+                `;
 
-        let hideTimeout;
+                Object.assign(tooltipDiv.style, {
+                    position: "absolute",
+                    zIndex: "9999",
+                    background: "#222",
+                    color: "#fff",
+                    padding: "8px",
+                    borderRadius: "6px",
+                    boxShadow: "0 0 8px rgba(0,0,0,0.5)",
+                    fontSize: "13px",
+                    maxWidth: "300px",
+                    maxHeight: "350px",
+                    overflow: "auto",
+                    display: "none",
+                    whiteSpace: "normal"
+                });
 
-        const showTooltip = () => {
-            clearTimeout(hideTimeout);
-            tooltipDiv.style.display = "block";
-            const rect = el.getBoundingClientRect();
-            const top = rect.top + window.scrollY - tooltipDiv.offsetHeight - 10;
-            tooltipDiv.style.top = `${top}px`;
-            tooltipDiv.style.left = `${rect.left + window.scrollX}px`;
-        };
+                document.body.appendChild(tooltipDiv);
 
-        const hideTooltip = () => {
-            hideTimeout = setTimeout(() => {
-                tooltipDiv.style.display = "none";
-            }, 200);
-        };
+                let hideTimeout;
 
-        el.addEventListener("mouseenter", showTooltip);
-        el.addEventListener("mouseleave", hideTooltip);
+                const showTooltip = () => {
+                    clearTimeout(hideTimeout);
+                    tooltipDiv.style.display = "block";
+                    const rect = el.getBoundingClientRect();
+                    const top = rect.top + window.scrollY - tooltipDiv.offsetHeight - 10;
+                    tooltipDiv.style.top = `${top}px`;
+                    tooltipDiv.style.left = `${rect.left + window.scrollX}px`;
+                };
 
-        tooltipDiv.addEventListener("mouseenter", () => clearTimeout(hideTimeout));
-        tooltipDiv.addEventListener("mouseleave", hideTooltip);
-    });
-}
+                const hideTooltip = () => {
+                    hideTimeout = setTimeout(() => {
+                        tooltipDiv.style.display = "none";
+                    }, 200);
+                };
 
+                el.addEventListener("mouseenter", showTooltip);
+                el.addEventListener("mouseleave", hideTooltip);
+                tooltipDiv.addEventListener("mouseenter", () => clearTimeout(hideTimeout));
+                tooltipDiv.addEventListener("mouseleave", hideTooltip);
+            });
+        }
     } catch (error) {
         console.error("❌ Erro ao buscar dados de banimento:", error);
     }
 }
+
 
 
 
