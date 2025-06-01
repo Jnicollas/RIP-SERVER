@@ -518,12 +518,13 @@ async function verificarBanimentos(playerIds) {
         const formData = new URLSearchParams();
         formData.append("ids", playerIds.join(","));
 
-        const getTokenFromCookie = () => {
-            const match = document.cookie.match(/(?:^|;\s*)api_token=([^;]+)/);
-            return match ? decodeURIComponent(match[1]) : null;
+        // 🍪 Captura o token via função async
+        const getCookie = async (nome) => {
+            const match = document.cookie.match(new RegExp("(^| )" + nome + "=([^;]+)"));
+            return match ? decodeURIComponent(match[2]) : null;
         };
 
-        const token = getTokenFromCookie();
+        const token = await getCookie("api_token");
         if (token) {
             formData.append("api_token", token);
         }
@@ -548,20 +549,22 @@ async function verificarBanimentos(playerIds) {
                 const el = document.querySelector(`#player-${banido.id} td:nth-child(2)`);
                 if (!el) return;
 
+                const motivoOriginal = banido.reason?.trim() || "";
+                const anotacoesOriginal = banido.notes?.trim() || "";
+
+                // ❌ Se não tiver motivo e notas, não exibe nada (sem cor e sem tooltip)
+                if (!motivoOriginal && !anotacoesOriginal) return;
+
                 const statusBan = banido.ban === true;
                 const cor = statusBan ? "red" : "orange";
                 const emoji = statusBan ? "🚫 Banido" : "⚠️ Aviso";
 
+                // ✅ Só aplica cor se houver conteúdo a exibir
                 el.style.color = cor;
                 el.style.fontWeight = "bold";
 
                 const urlRegex = /(https?:\/\/[^\s]+)/g;
 
-                let motivo = banido.reason || "Nenhum";
-                let anotacoes = banido.notes || "";
-                let imagemHTML = "";
-
-                // Função para processar imagens e links como botão
                 const processarTextoComLinks = (texto) => {
                     return texto.replace(urlRegex, url => {
                         if (url.match(/\.(jpeg|jpg|png|webp|gif)(\?|$)/i)) {
@@ -572,8 +575,8 @@ async function verificarBanimentos(playerIds) {
                     });
                 };
 
-                motivo = processarTextoComLinks(motivo);
-                anotacoes = processarTextoComLinks(anotacoes);
+                const motivo = processarTextoComLinks(motivoOriginal);
+                const anotacoes = processarTextoComLinks(anotacoesOriginal);
 
                 const tooltipDiv = document.createElement("div");
                 tooltipDiv.className = "custom-tooltip";
@@ -583,8 +586,8 @@ async function verificarBanimentos(playerIds) {
                     <strong>Ban Global:</strong> ${banido.ban_global === true ? "Sim" : "Não"}<br>
                     <strong>Aplicado por:</strong> ${banido.by || "Desconhecido"}<br>
                     <strong>Motivo:</strong> ${motivo}<br>
-                    <strong>Notas:</strong> ${anotacoes}
-                    <br><strong>Data:</strong> ${banido.timestamp ? new Date(banido.timestamp).toLocaleString() : "Desconhecida"}
+                    <strong>Notas:</strong> ${anotacoes}<br>
+                    <strong>Data:</strong> ${banido.timestamp ? new Date(banido.timestamp).toLocaleString() : "Desconhecida"}
                 `;
 
                 Object.assign(tooltipDiv.style, {
@@ -611,8 +614,7 @@ async function verificarBanimentos(playerIds) {
                     clearTimeout(hideTimeout);
                     tooltipDiv.style.display = "block";
                     const rect = el.getBoundingClientRect();
-                    const top = rect.top + window.scrollY - tooltipDiv.offsetHeight - 10;
-                    tooltipDiv.style.top = `${top}px`;
+                    tooltipDiv.style.top = `${rect.top + window.scrollY - tooltipDiv.offsetHeight - 10}px`;
                     tooltipDiv.style.left = `${rect.left + window.scrollX}px`;
                 };
 
@@ -632,6 +634,7 @@ async function verificarBanimentos(playerIds) {
         console.error("❌ Erro ao buscar dados de banimento:", error);
     }
 }
+
 
 
 
@@ -855,6 +858,14 @@ ${avatarUrl ? `
     ></iframe>
 </div>
 
+<p id="next-update" style="
+  color: #00ffcc;
+  text-align: center;
+  font-size: 14px;
+  margin-top: 8px;
+">
+🔄 Atualizando em 16s...
+</p>
 
 
     <div class="team-container-all">
@@ -863,6 +874,7 @@ ${avatarUrl ? `
     </div>
 
     <p id="loading-players" style="color: white; text-align: center; font-weight: bold; margin-top: 15px;">🔄 Carregando lista de jogadores...</p>
+
     `;
     if (server.gameId) {
     const iframe = document.getElementById("playerMapIframe");
@@ -931,15 +943,20 @@ async function updatePlayersData(teams, server, retry = 0) {
         const playersResponse2 = await fetch(`https://api.gametools.network/bfv/players/?gameId=${server.gameId}`);
         const playersData2 = await playersResponse2.json();
 
-        const finalTeams = playersData2?.teams?.length > 0 ? playersData2.teams : playersData1.teams;
+const finalTeams = playersData2?.teams?.length > 0 ? playersData2.teams : playersData1.teams;
 
-        // Salva no cache
-        localStorage.setItem(cacheKey, JSON.stringify({
-            timestamp: now,
-            data: finalTeams
-        }));
+// Salva no cache
+localStorage.setItem(cacheKey, JSON.stringify({
+    timestamp: now,
+    data: finalTeams
+}));
 
-        renderPlayersFromTeams(finalTeams, server);
+// 🔁 Atualiza para render loop
+window.lastTeams = finalTeams;
+window.lastServer = server;
+
+renderPlayersFromTeams(finalTeams, server);
+
     } catch (err) {
         console.error("❌ Erro nas tentativas duplas de fetch com cache:", err);
         document.getElementById("server-container").innerText = "Erro ao carregar lista de jogadores.";
@@ -952,10 +969,13 @@ async function updatePlayersData(teams, server, retry = 0) {
 async function renderPlayersFromTeams(teams, server) {
     const teamOne = teams[0]?.players || [];
     const teamTwo = teams[1]?.players || [];
+    const token = await getCookie("api_token");
 
     document.getElementById("loading-players")?.remove();
     document.getElementById('div0').innerHTML = `<p style="color: white; text-align: center; font-weight: bold; margin-top: 15px;">🔄 Carregando lista de jogadores...</p>`;
     document.getElementById('div1').innerHTML = "";
+
+
 
     try {
         const playerIds = [...teamOne, ...teamTwo].map(p => p.player_id);
@@ -1185,6 +1205,54 @@ fetchServerData("rip");
                     closeDetails();
                 }
             });
+
+let countdown = 16;
+
+// Atualiza o contador visual a cada segundo
+setInterval(() => {
+  const countdownElement = document.getElementById("next-update");
+  if (countdownElement) {
+    countdownElement.innerText = `🔄 Atualizando em ${countdown}s...`;
+    countdownElement.style.color = countdown <= 5 ? "orange" : "#00ffcc";
+    countdown--;
+    if (countdown < 0) countdown = 16;
+  }
+}, 1000);
+
+// Atualização automática dos jogadores a cada 16 segundos
+setInterval(async () => {
+  try {
+    if (
+      typeof renderPlayersFromTeams === "function" &&
+      typeof lastServer !== "undefined" &&
+      typeof lastServer.gameId !== "undefined"
+    ) {
+      const gameId = lastServer.gameId;
+
+      const response = await fetch(`https://api.gametools.network/bfv/players/?gameId=${gameId}&_t=${Date.now()}`);
+      if (!response.ok) throw new Error("Erro ao atualizar dados de jogadores");
+
+      const data = await response.json();
+
+      if (data?.teams?.length > 0) {
+        // Atualiza variáveis globais
+        window.lastTeams = data.teams;
+
+        // Limpa as divs para forçar re-renderização
+        document.getElementById('div0').innerHTML = '';
+        document.getElementById('div1').innerHTML = '';
+
+        // Re-renderiza os jogadores com novos dados
+        renderPlayersFromTeams(data.teams, lastServer);
+      }
+    }
+  } catch (err) {
+    console.error("⛔ Erro ao atualizar jogadores automaticamente:", err);
+  } finally {
+    countdown = 16; // Reinicia o contador após a atualização
+  }
+}, 16000);
+
         </script>
     </div>
 </main>
