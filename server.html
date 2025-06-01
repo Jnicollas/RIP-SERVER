@@ -402,7 +402,7 @@ async function displayServerData(servers) {
 
         return `
             <div class="server-box" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 2px; border-radius: 0px; background-color: rgba(0, 0, 0, 0.3); padding: 10px;">
-                <div onclick="showServerDetails('${server.gameId}', '${server.ownerId}')" style="display: flex; align-items: center; cursor: pointer;">
+                <div onclick="window.location.href='?server_name=${encodeURIComponent(server.prefix)}'" style="display: flex; align-items: center; cursor: pointer;">
                     <img src="${server.url || ''}" alt="Imagem do Mapa" style="width: 80px; height: 80px; object-fit: cover; margin-right: 15px; border-radius: 0px;" />
                     <div style="flex: 1; color: white;">
                         <h3 style="margin: 0; color: white; font-size: 18px;">
@@ -486,7 +486,7 @@ async function analisarServidor(gameId, buttonElement) {
 
 
 // Exemplo de chamada com lista de servidores
-fetchServerData("rip"); // Insira aqui a função que busca os servidores
+//fetchServerData("rip"); // Insira aqui a função que busca os servidores
 
 async function fetchAllPlayerStats(playerIds) {
     if (!playerIds || playerIds.length === 0) return [];
@@ -644,6 +644,23 @@ let isFetchingServerDetails = false;
 
 async function showServerDetails(gameId, ownerId) {
     if (isFetchingServerDetails) return;
+
+    // Atualiza a URL com ?server_name=... sem recarregar a página
+        if (ownerId && gameId) {
+        try {
+            const res = await fetch(`https://api.gametools.network/bfv/detailedserver/?gameid=${gameId}&lang=pt-br&region=all&platform=pc`);
+            const data = await res.json();
+            if (data?.prefix) {
+            const url = new URL(window.location.href);
+            url.searchParams.set("server_name", data.prefix);
+            url.searchParams.delete("gameid"); // Remove ?gameid da URL se estiver presente
+            history.replaceState(null, "", url);
+            }
+        } catch (err) {
+            console.warn("⚠️ Não foi possível atualizar a URL:", err);
+        }
+    }
+
     isFetchingServerDetails = true;
 
     const container = document.getElementById("server-container");
@@ -1151,38 +1168,44 @@ function togglePlayerMapVisibility() {
 }
 
 function closeDetails() {
-    document.getElementById("server-container").innerHTML = "Carregando informações do servidor...";
-    fetchServerData("rip");
+  document.getElementById("server-container").innerHTML = "Carregando informações do servidor...";
+  window.location.href = "?fetchServer=rip";
 }
 
 function searchServer() {
-    const query = document.getElementById("server-search").value;
-    document.getElementById("server-container").innerText = "Carregando informações do servidor...";
-    fetchServerData(query);
+  const query = document.getElementById("server-search").value;
+  if (query) {
+    window.location.href = `?fetchServer=${encodeURIComponent(query)}`;
+  }
 }
 
 function Core() {
-    document.getElementById("server-container").innerText = "Carregando informações do servidor...";
-    fetchServerData("core");
+  window.location.href = "?fetchServer=core";
 }
 
 function DICE() {
-    document.getElementById("server-container").innerText = "Carregando informações do servidor...";
-    fetchServerData("DICE");
+  window.location.href = "?fetchServer=DICE";
 }
 
 function RIP() {
-    document.getElementById("server-container").innerText = "Carregando informações do servidor...";
-    fetchServerData("RIP");
+  window.location.href = "?fetchServer=RIP";
 }
 
 function TDM() {
-    document.getElementById("server-container").innerText = "Carregando informações do servidor...";
-    fetchServerData("TDM");
+  window.location.href = "?fetchServer=TDM";
 }
 
+document.getElementById("server-search").addEventListener("keydown", function(e) {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    searchServer();
+  }
+});
+
+
+
 // Busca inicial padrão
-fetchServerData("rip");
+//fetchServerData("rip");
 
             // Seleciona os elementos de áudio
             const sound1 = document.getElementById('sound1');
@@ -1252,6 +1275,44 @@ setInterval(async () => {
     countdown = 16; // Reinicia o contador após a atualização
   }
 }, 16000);
+
+
+// ⛔ Só executa fetchServerData("rip") se NÃO houver gameid nem server_name na URL
+window.addEventListener("DOMContentLoaded", async () => {
+  const urlParams = new URLSearchParams(window.location.search);
+  const gameId = urlParams.get("gameid");
+  const serverName = urlParams.get("server_name");
+  const fetchServer = urlParams.get("fetchServer");
+
+  if (gameId) {
+    showServerDetails(gameId, null); // Carrega pelo ID
+  } else if (serverName) {
+    try {
+      const encodedName = encodeURIComponent(serverName);
+      const res = await fetch(`https://api.gametools.network/bfv/servers/?platform=pc&limit=1&region=all&lang=pt-br&name=${encodedName}`);
+      const data = await res.json();
+
+      if (data?.servers?.length > 0) {
+        const server = data.servers[0];
+        showServerDetails(server.gameId, server.ownerId);
+      } else {
+        document.getElementById("server-container").innerHTML = `<p style="color:red; text-align:center;">Servidor "${serverName}" não encontrado.</p>`;
+      }
+    } catch (err) {
+      console.error("Erro ao buscar por nome:", err);
+      document.getElementById("server-container").innerHTML = `<p style="color:red; text-align:center;">Erro ao buscar servidor "${serverName}".</p>`;
+    }
+  } else if (fetchServer) {
+    // ✅ Busca comum, apenas mostra lista
+    fetchServerData(fetchServer);
+  } else {
+    // 🔍 Busca padrão
+    fetchServerData("rip");
+  }
+});
+
+
+
 
         </script>
     </div>
