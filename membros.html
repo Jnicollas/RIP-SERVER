@@ -18,6 +18,15 @@
             animation: blink 1s infinite;
         }
 
+        .games-list {
+            background-color: rgba(0, 133, 121, 0.25);
+            border-radius: 8px;
+            color: white;
+            font-weight: bold;
+            margin-top: 10px;
+            text-shadow: 1px 1px 2px #000;
+        }
+
         @keyframes blink {
             0%, 100% { opacity: 1; }
             50% { opacity: 0; }
@@ -49,6 +58,21 @@
             0%, 100% { opacity: 1; }
             50% { opacity: 0.4; transform: scale(1.05); }
         }
+
+
+
+
+.player-name {
+    background-color: rgba(0, 0, 0, 0.6); /* Fundo escuro */
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 20px;
+    font-weight: bold;
+    color: white;
+    text-shadow: 1px 1px 3px black;
+    display: inline-block;
+}
+
     </style>
 
     <div id="players-container" style="display: flex; flex-wrap: wrap; justify-content: center; gap: 20px;"></div>
@@ -58,25 +82,51 @@
 
         async function fetchEaIds() {
             try {
-                const response = await fetch('https://rip-bf5.com.br/login/membros.php');
+                const response = await fetch('https://rip-bf5.com.br/login/account/members/');
                 const data = await response.json();
-                if (!data.success || !data.ea_ids) throw new Error("Erro ao obter IDs do banco de dados.");
-                return data.ea_ids;
+                if (!data.success || !data.ea_ids || !data.userId) throw new Error("Erro ao obter IDs do banco de dados.");
+
+                // Retorna como pares combinados
+                return data.ea_ids.map((ea_id, i) => ({
+                    ea_id,
+                    user_id: data.userId[i] || null
+                }));
             } catch (error) {
                 console.error("Erro ao buscar IDs:", error);
                 return [];
             }
         }
 
-        async function fetchPlayerDetails(eaId) {
-            try {
-                const response = await fetch(`https://api.gametools.network/bfglobal/games/?include_emblem=false&playerid=${encodeURIComponent(eaId)}&platform=pc&skip_battlelog=false`);
-                return await response.json();
-            } catch (error) {
-                console.error(`Erro ao buscar detalhes do jogador para o ID ${eaId}:`, error);
-                return null;
-            }
+
+async function fetchPlayerDetails(eaId, userId) {
+    try {
+        const fallbackRes = await fetch(`https://rip-bf5.com.br/api/player-global/get-user/?userId=${encodeURIComponent(userId)}&GetGames=true&GetGames-tags=true`, {
+            method: "GET",
+            credentials: "include"
+        });
+
+        const fallbackData = await fallbackRes.json();
+
+        if (fallbackData?.error || !fallbackData.users || fallbackData.users.length === 0) {
+            console.warn("⚠️ Nenhum usuário encontrado na API player-global.");
+            return null;
         }
+
+        const player = fallbackData.users[0];
+
+        return {
+            userName: player.displayName || player.nickname || player.uniqueName,
+            avatar: player.avatarUrl,
+            games: player.games || []
+        };
+
+    } catch (error) {
+        console.error(`❌ Erro ao buscar jogador ${userId}:`, error);
+        return null;
+    }
+}
+
+
 
         async function fetchPermissions(eaId) {
             try {
@@ -96,7 +146,7 @@
             const container = document.getElementById('players-container');
             const playerDiv = document.createElement('div');
             playerDiv.id = `player-${eaId}`;
-            playerDiv.style = "background: rgba(0, 0, 0, 0.5); border-radius: 10px; padding: 20px; color: white; width: 300px; text-align: center;";
+            playerDiv.style = "background: rgba(0, 0, 0, 0.5); border-radius: 10px; padding: 5px; color: white; width: 300px; text-align: center;";
             const playerName = document.createElement('h2');
             playerName.textContent = `Carregando...`;
             playerDiv.appendChild(playerName);
@@ -109,7 +159,8 @@
             if (!playerDiv) return;
 
             const playerName = playerDiv.querySelector('h2');
-            playerName.textContent = data.userName || `ID: ${eaId}`;
+            playerName.innerHTML = `<span class="player-name">${data.userName || `ID: ${eaId}`}</span>`;
+
 
             const avatarUrl = data.avatar || 'https://via.placeholder.com/100';
 
@@ -119,47 +170,94 @@
             playerAvatar.style = "border-radius: 50%; width: 100px; height: 100px; margin-top: 10px;";
             playerDiv.appendChild(playerAvatar);
 
-            const games = ["bf1", "bf4", "bfv", "bf3", "bfh", "bf2042"];
-            const gamesList = games.filter(game => data[game]).map(game => game.toUpperCase()).join(", ");
+            const gamesList = (data.games || [])
+                .map(game => game)
+                .join(", ");
+
             const playerGames = document.createElement('p');
             playerGames.textContent = `Jogos: ${gamesList || "Nenhum"}`;
+            playerGames.className = "games-list";
             playerDiv.appendChild(playerGames);
 
+
+
             const { permissions, config } = await fetchPermissions(eaId);
-            if (permissions[3] === 1) {
-                const anima = config.anima || 1;
-                const proBadge = document.createElement('div');
-                proBadge.className = `pro-badge anima-${anima}`;
-                proBadge.textContent = '🔥 PRO';
-                playerDiv.appendChild(proBadge);
-            }
+if (permissions[3] === 1) {
+    const anima = config.anima || 1;
+    const proBadge = document.createElement('div');
+    proBadge.className = `pro-badge anima-${anima}`;
+    proBadge.textContent = '🔥 PRO';
+    playerDiv.appendChild(proBadge);
+
+    // 🎨 Verifica e aplica o background, se for png ou gif
+    const bg = config.background || "";
+if (/\.(png|jpg|gif)$/i.test(bg)) {
+        const bgUrl = `https://choriper.api-rip-bf5.org/upload/upload/view/${bg}`;
+        playerDiv.style.backgroundImage = `url('${bgUrl}')`;
+        playerDiv.style.backgroundSize = 'cover';
+        playerDiv.style.backgroundPosition = 'center';
+    }
+}
+
 
             pendingEaIds = pendingEaIds.filter(id => id !== eaId);
         }
 
-        async function loadPlayers() {
-            const eaIds = await fetchEaIds();
-            for (const eaId of eaIds) {
-                displayPlayerPlaceholder(eaId);
-            }
-            const promises = eaIds.map(async (eaId) => {
-                const data = await fetchPlayerDetails(eaId);
-                if (data) await updatePlayerDetails(eaId, data);
-            });
-            await Promise.all(promises);
-        }
+async function loadPlayers() {
+    const players = await fetchEaIds(); // agora retorna array de objetos { ea_id, user_id }
+    const container = document.getElementById('players-container');
+    const successEaIds = [];
+    const failedEaIds = [];
 
-        async function retryPendingPlayers() {
-            if (pendingEaIds.length > 0) {
-                console.log(`Tentando recarregar ${pendingEaIds.length} jogadores...`);
-                for (const eaId of pendingEaIds) {
-                    const data = await fetchPlayerDetails(eaId);
-                    if (data) await updatePlayerDetails(eaId, data);
-                }
-            }
+    // Mostrar placeholders primeiro
+    for (const { ea_id } of players) {
+        displayPlayerPlaceholder(ea_id);
+    }
+
+    // Faz as requisições em paralelo com acesso ao user_id
+    const promises = players.map(async ({ ea_id, user_id }) => {
+        const data = await fetchPlayerDetails(ea_id, user_id); // agora você pode usar os dois
+        if (data && data.userName) {
+            await updatePlayerDetails(ea_id, data);
+            successEaIds.push(ea_id);
+        } else {
+            failedEaIds.push(ea_id);
         }
+    });
+
+    await Promise.all(promises);
+
+    // Reorganiza os que falharam para o fim
+    for (const id of failedEaIds) {
+        const div = document.getElementById(`player-${id}`);
+        if (div) container.appendChild(div);
+    }
+
+    console.log(`✅ Sucesso: ${successEaIds.length} | ❌ Falha: ${failedEaIds.length}`);
+}
+
+
+
+
+async function retryPendingPlayers() {
+    if (pendingEaIds.length === 0) return;
+
+    console.log(`🔁 Tentando recarregar ${pendingEaIds.length} jogadores...`);
+
+    // Recarrega o mapa completo ea_id → user_id
+    const players = await fetchEaIds();
+
+    for (const eaId of [...pendingEaIds]) {
+        const player = players.find(p => p.ea_id === eaId);
+        if (!player) continue;
+
+        const data = await fetchPlayerDetails(player.ea_id, player.user_id);
+        if (data) await updatePlayerDetails(player.ea_id, data);
+    }
+}
+
 
         loadPlayers();
-        setInterval(retryPendingPlayers, 5000);
+        setInterval(retryPendingPlayers, 16000);
     </script>
 </body>
