@@ -1,5 +1,3 @@
-<!-- wp:html -->
-<!-- wp:html -->
 <iframe 
   title="perfil"
   src="https://rip-bf5.com.br/login/perfil/"
@@ -331,16 +329,15 @@ p:empty {
 
 const defaultApiUrl = "https://api.gametools.network/bfv/servers/?platform=pc&limit=10&region=sam&lang=pt-br";
 
-async function fetchServerData(query = "") {
-    // Definir a URL base com os valores padrão
-    const region = document.getElementById("region-select")?.value || "sam";
+async function fetchServerData(query = "", customRegion = null) {
+    const region = customRegion || document.getElementById("region-select")?.value || "sam";
     const limit = document.getElementById("limit-select")?.value || "10";
     const platform = document.getElementById("platform-select")?.value || "pc";
     const encodedQuery = encodeURIComponent(query);
+
     const apiUrl = `https://api.gametools.network/bfv/servers/?platform=${platform}&limit=${limit}&region=${region}&lang=pt-br&name=${encodedQuery}`;
 
     try {
-        // Realizar a requisição à API
         const response = await fetch(apiUrl);
         const data = await response.json();
 
@@ -354,6 +351,7 @@ async function fetchServerData(query = "") {
         document.getElementById("server-container").innerText = "Erro ao carregar informações do servidor.";
     }
 }
+
 
         async function fetchAdmData() {
             try {
@@ -416,7 +414,7 @@ async function displayServerData(servers) {
                         <p style="margin: 5px 0;"><strong>Mapa Atual:</strong> ${server.currentMap || "N/A"}</p>
                         <p style="margin: 5px 0;"><strong>Modo de Jogo:</strong> ${server.mode || "N/A"}</p>
                         <p style="margin: 5px 0;"><strong>Jogadores:</strong> ${server.playerAmount || 0} / ${server.maxPlayers || 0} Fila ${server.inQue || 0} (${server.inSpectator || 0})</p>
-                        <p style="margin: 5px 0;"><strong>Região:</strong> ${server.country || "N/A"} (${server.region || "N/A"})</p>
+                        <strong>Região:</strong> ${getFlagImage(server.country)} ${server.country || "N/A"} (${server.region || "N/A"})
                     </div>
                 </div>
                 <div style="margin-left: 20px; font-size: 18px;">
@@ -705,6 +703,7 @@ async function showServerDetails(gameId, ownerId) {
 
                         const platoonHTML = `
                             <div class="platoon-info">
+                                <a href="https://rip-bf5.com.br/platoons/?id=${data.id}" target="_blank" style="text-decoration: none; color: inherit;">
                                 <img class="avatar-img" src="${data.emblem}" alt="Emblema do Pelotão">
                                 <div class="platoon-name">${data.name}</div>
                                 <div class="platoon-description">${data.description}</div>
@@ -765,6 +764,7 @@ async function fetchOwnerAvatar(ownerId) {
 
         return {
             emblem: data.activePlatoon.emblem || null,
+            id: data.activePlatoon.id || null,
             name: data.activePlatoon.name || "Pelotão Desconhecido",
             description: data.activePlatoon.description || ""
         };
@@ -881,7 +881,7 @@ ${avatarUrl ? `
   font-size: 14px;
   margin-top: 8px;
 ">
-🔄 Atualizando em 16s...
+🔄 Atualizando em 30s...
 </p>
 
 
@@ -1006,7 +1006,13 @@ async function renderPlayersFromTeams(teams, server) {
 }
 
 
-
+function getFlagImage(countryCode) {
+    if (!countryCode) return "";
+    const code = countryCode.toLowerCase(); // Ex: "sg"
+    return `<img src="https://flagcdn.com/24x18/${code}.png" 
+                style="vertical-align: middle; margin-right: 5px;" 
+                alt="${code}">`;
+}
 
 function addSortingFunctionality(teamDiv) {
     const headers = teamDiv.querySelectorAll("th");
@@ -1174,10 +1180,21 @@ function closeDetails() {
 
 function searchServer() {
   const query = document.getElementById("server-search").value;
-  if (query) {
-    window.location.href = `?fetchServer=${encodeURIComponent(query)}`;
-  }
+  const region = document.getElementById("region-select").value;
+  const limit = document.getElementById("limit-select").value;
+  const platform = document.getElementById("platform-select").value;
+
+  const params = new URLSearchParams();
+  if (query) params.set("fetchServer", query);
+  else params.set("fetchServer", ""); // 🔹 adiciona vazio para puxar todos
+  params.set("region", region);
+  params.set("limit", limit);
+  params.set("platform", platform);
+
+  window.location.href = "?" + params.toString();
 }
+
+
 
 function Core() {
   window.location.href = "?fetchServer=core";
@@ -1204,9 +1221,9 @@ document.getElementById("server-search").addEventListener("keydown", function(e)
 
 
 
-// Busca inicial padrão
-//fetchServerData("rip");
-
+            // Busca inicial padrão
+            //fetchServerData("rip");
+          
             // Seleciona os elementos de áudio
             const sound1 = document.getElementById('sound1');
             const sound2 = document.getElementById('sound2');
@@ -1229,7 +1246,7 @@ document.getElementById("server-search").addEventListener("keydown", function(e)
                 }
             });
 
-let countdown = 16;
+let countdown = 30;
 
 // Atualiza o contador visual a cada segundo
 setInterval(() => {
@@ -1238,7 +1255,7 @@ setInterval(() => {
     countdownElement.innerText = `🔄 Atualizando em ${countdown}s...`;
     countdownElement.style.color = countdown <= 5 ? "orange" : "#00ffcc";
     countdown--;
-    if (countdown < 0) countdown = 16;
+    if (countdown < 0) countdown = 30;
   }
 }, 1000);
 
@@ -1272,9 +1289,9 @@ setInterval(async () => {
   } catch (err) {
     console.error("⛔ Erro ao atualizar jogadores automaticamente:", err);
   } finally {
-    countdown = 16; // Reinicia o contador após a atualização
+    countdown = 30; // Reinicia o contador após a atualização
   }
-}, 16000);
+}, 30000);
 
 
 // ⛔ Só executa fetchServerData("rip") se NÃO houver gameid nem server_name na URL
@@ -1284,8 +1301,17 @@ window.addEventListener("DOMContentLoaded", async () => {
   const serverName = urlParams.get("server_name");
   const fetchServer = urlParams.get("fetchServer");
 
+  // Restaura os selects
+  const region = urlParams.get("region");
+  const limit = urlParams.get("limit");
+  const platform = urlParams.get("platform");
+
+  if (region) document.getElementById("region-select").value = region;
+  if (limit) document.getElementById("limit-select").value = limit;
+  if (platform) document.getElementById("platform-select").value = platform;
+
   if (gameId) {
-    showServerDetails(gameId, null); // Carrega pelo ID
+    showServerDetails(gameId, null);
   } else if (serverName) {
     try {
       const encodedName = encodeURIComponent(serverName);
@@ -1303,27 +1329,14 @@ window.addEventListener("DOMContentLoaded", async () => {
       document.getElementById("server-container").innerHTML = `<p style="color:red; text-align:center;">Erro ao buscar servidor "${serverName}".</p>`;
     }
   } else if (fetchServer) {
-    // ✅ Busca comum, apenas mostra lista
     fetchServerData(fetchServer);
-  } else {
-    // 🔍 Busca padrão
-    fetchServerData("rip");
-  }
+} else if (urlParams.has("fetchServer")) {
+  fetchServerData(""); // busca todos da região
+} else {
+  fetchServerData("rip", "all"); // fallback verdadeiro, se nada for enviado
+}
+
 });
-
-
-
-
         </script>
     </div>
 </main>
-<!-- /wp:html -->
-
-<!-- wp:paragraph -->
-<p></p>
-<!-- /wp:paragraph -->
-<!-- /wp:html -->
-
-<!-- wp:paragraph -->
-<p></p>
-<!-- /wp:paragraph -->
