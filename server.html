@@ -325,7 +325,7 @@ p:empty {
         <!-- Exibição dos dados do servidor -->
         <div id="server-container">Carregando informações do servidor...</div>
 
-        <script>
+<script>
 
 const defaultApiUrl = "https://api.gametools.network/bfv/servers/?platform=pc&limit=10&region=sam&lang=pt-br";
 
@@ -400,7 +400,7 @@ async function displayServerData(servers) {
 
         return `
             <div class="server-box" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 2px; border-radius: 0px; background-color: rgba(0, 0, 0, 0.3); padding: 10px;">
-                <div onclick="window.location.href='?server_name=${encodeURIComponent(server.prefix)}'" style="display: flex; align-items: center; cursor: pointer;">
+                <div onclick="window.location.href='?gameid=${encodeURIComponent(server.gameId)}'" style="display: flex; align-items: center; cursor: pointer;">
                     <img src="${server.url || ''}" alt="Imagem do Mapa" style="width: 80px; height: 80px; object-fit: cover; margin-right: 15px; border-radius: 0px;" />
                     <div style="flex: 1; color: white;">
                         <h3 style="margin: 0; color: white; font-size: 18px;">
@@ -674,45 +674,50 @@ async function showServerDetails(gameId, ownerId) {
     const apiUrl = `https://api.gametools.network/bfv/detailedserver/?gameid=${encodeURIComponent(gameId)}&lang=pt-br&region=all&platform=pc`;
     const playersApiUrl = `https://api.gametools.network/bfv/players/?gameId=${gameId}`;
 
-    try {
-        const fetches = [fetch(apiUrl).then(res => res.ok ? res.json() : Promise.reject(new Error(`Erro API servidor: ${res.status}`)))];
+try {
+  const fetches = [
+    fetch(apiUrl).then(res =>
+      res.ok ? res.json() : Promise.reject(new Error(`Erro API servidor: ${res.status}`))
+    )
+  ];
 
-        if (ownerId && !["undefined", "null"].includes(ownerId)) {
-            fetches.push(fetchOwnerAvatar(ownerId));
-        } else {
-            fetches.push(Promise.resolve(null));
+  // 👇 Não depende mais do parâmetro ownerId
+  //    Deixa o segundo item do Promise.all como null por compat
+  fetches.push(Promise.resolve(null));
+
+  const [serverResponse, _avatarUrl] = await Promise.all(fetches);
+  console.log("✅ serverResponse:", serverResponse);
+
+  if (!serverResponse?.teams || !serverResponse?.rotation) {
+    throw new Error("Detalhes incompletos do servidor.");
+  }
+
+  displayBasicServerData(serverResponse, null); // mostra os dados do servidor logo
+
+  // 🔄 carrega a parte do pelotão em segundo plano usando o ID do dono do response
+  const ownerPersonaId = serverResponse?.owner?.id;
+  if (ownerPersonaId) {
+    setTimeout(() => {
+      fetchOwnerAvatar(ownerPersonaId).then(data => {
+        if (data) {
+          // Remove o placeholder antigo
+          const loadingDiv = document.getElementById("platoon-loading");
+          if (loadingDiv) loadingDiv.remove();
+
+          const platoonHTML = `
+            <div class="platoon-info">
+              <a href="https://rip-bf5.com.br/platoons/?id=${data.id}" target="_blank" style="text-decoration: none; color: inherit;">
+                <img class="avatar-img" src="${data.emblem}" alt="Emblema do Pelotão">
+                <div class="platoon-name">${data.name}</div>
+                <div class="platoon-description">${data.description}</div>
+              </a>
+            </div>`;
+          document.querySelector(".server-info-container")
+            ?.insertAdjacentHTML("beforeend", platoonHTML);
         }
-
-        const [serverResponse, avatarUrl] = await Promise.all(fetches);
-        console.log("✅ serverResponse:", serverResponse);
-
-        if (!serverResponse?.teams || !serverResponse?.rotation) {
-            throw new Error("Detalhes incompletos do servidor.");
-        }
-
-        displayBasicServerData(serverResponse, null); // mostra os dados do servidor logo
-
-        // 🔄 carrega a parte do pelotão em segundo plano
-        if (ownerId && !["undefined", "null"].includes(ownerId)) {
-            setTimeout(() => {
-                fetchOwnerAvatar(ownerId).then(data => {
-                    if (data) {
-                        // Remove o placeholder antigo
-                        const loadingDiv = document.getElementById("platoon-loading");
-                        if (loadingDiv) loadingDiv.remove();
-
-                        const platoonHTML = `
-                            <div class="platoon-info">
-                                <a href="https://rip-bf5.com.br/platoons/?id=${data.id}" target="_blank" style="text-decoration: none; color: inherit;">
-                                <img class="avatar-img" src="${data.emblem}" alt="Emblema do Pelotão">
-                                <div class="platoon-name">${data.name}</div>
-                                <div class="platoon-description">${data.description}</div>
-                            </div>`;
-                        document.querySelector(".server-info-container").insertAdjacentHTML("beforeend", platoonHTML);
-                    }
-                });
-            }, 300);// espera 300ms
-        }
+      }).catch(err => console.warn("fetchOwnerAvatar falhou:", err));
+    }, 300); // espera 300ms
+  }
 
 
         // 🔁 Tenta buscar jogadores até 3 vezes se não retornar dados válidos
@@ -1219,11 +1224,6 @@ document.getElementById("server-search").addEventListener("keydown", function(e)
   }
 });
 
-
-
-            // Busca inicial padrão
-            //fetchServerData("rip");
-          
             // Seleciona os elementos de áudio
             const sound1 = document.getElementById('sound1');
             const sound2 = document.getElementById('sound2');
@@ -1337,6 +1337,7 @@ window.addEventListener("DOMContentLoaded", async () => {
 }
 
 });
+
         </script>
     </div>
 </main>
