@@ -20,6 +20,89 @@
 </main>
 
     <style>
+/* ====== Servidores ====== */
+.server-box h3 {
+  font-size: 20px;
+  font-weight: 700;
+  color: #ffffff;
+  text-shadow: 
+    0 0 4px rgba(0,0,0,0.8),
+    0 0 8px rgba(0,0,0,0.6);
+  letter-spacing: 0.5px;
+  transition: color 0.3s ease, text-shadow 0.3s ease;
+  cursor: pointer;
+}
+
+.server-box h3:hover {
+  color: #00e6ff; /* fica azul neon no hover */
+  text-shadow: 
+    0 0 6px rgba(0,230,255,0.8),
+    0 0 12px rgba(0,230,255,0.6);
+}
+
+/* ====== Jogadores ====== */
+.player-table td:nth-child(2) {
+  font-weight: 600;
+  color: #f5f5f5;
+  text-shadow: 
+    0 0 3px rgba(0,0,0,0.9),
+    0 0 6px rgba(0,0,0,0.6);
+  cursor: pointer;
+  transition: color 0.3s ease, transform 0.2s ease;
+}
+
+.player-table td:nth-child(2):hover {
+  color: #00ffcc; /* verde água */
+  transform: scale(1.03);
+  text-shadow: 
+    0 0 6px rgba(0,255,204,0.9),
+    0 0 12px rgba(0,255,204,0.7);
+}
+/* ====== Info dos Servidores ====== */
+.server-box p {
+  margin: 3px 0;
+  font-size: 14px;
+  color: #f0f0f0;
+  text-shadow: 0 0 3px rgba(0,0,0,0.7);
+}
+
+.server-box p strong {
+  color: #ffffff;
+  font-weight: 700;
+}
+
+/* ====== Títulos internos (Mapa, Jogadores, Região) ====== */
+.server-text strong {
+  color: #00e6ff; /* destaque em azul */
+  font-weight: 700;
+  text-shadow: 0 0 4px rgba(0,0,0,0.8);
+}
+
+/* ====== Labels extras (✔ Verificado, ⭐ Oficial, etc.) ====== */
+.server-box h3 span {
+  font-size: 13px;
+  font-weight: 600;
+  margin-left: 5px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(0,0,0,0.4);
+  color: #fff;
+  text-shadow: none;
+}
+.server-box h3 span:nth-child(1) { color: #4caf50; }  /* verde */
+.server-box h3 span:nth-child(2) { color: #2196f3; }  /* azul */
+.server-box h3 span:nth-child(3) { color: #ffc107; }  /* amarelo */
+.server-box h3 span:nth-child(4) { color: #ff9800; }  /* laranja */
+
+/* ====== Separadores entre servidores ====== */
+.server-box {
+  border-bottom: 1px solid rgba(255,255,255,0.15);
+  padding: 12px 8px;
+  transition: background 0.2s ease;
+}
+.server-box:hover {
+  background: rgba(255,255,255,0.05);
+}
 .platoon-info {
     display: flex;
     flex-direction: column;
@@ -784,7 +867,7 @@ async function displayBasicServerData(server, avatarUrl) {
     const container = document.getElementById("server-container");
 
     const descriptionApiUrl = server.owner && server.owner.id
-        ? `https://rip-bf5.com.br/api/server/descriptionServer/?personaId=${server.owner.id}&playgroundId=${encodeURIComponent(server.playgroundId)}`
+        ? `https://rip-bf5.com.br/api/server/descriptionServer/?playgroundId=${encodeURIComponent(server.playgroundId)}`
         : null;
 
     const fetchDescription = async () => {
