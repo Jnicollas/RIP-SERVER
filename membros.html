@@ -77,187 +77,233 @@
 
     <div id="players-container" style="display: flex; flex-wrap: wrap; justify-content: center; gap: 20px;"></div>
 
-    <script>
-        let pendingEaIds = [];
+<script>
+let pendingEaIds = [];
+let intervalStarted = false;
 
-        async function fetchEaIds() {
-            try {
-                const response = await fetch('https://rip-bf5.com.br/login/account/members/');
-                const data = await response.json();
-                if (!data.success || !data.ea_ids || !data.userId) throw new Error("Erro ao obter IDs do banco de dados.");
+function byId(id){ return document.getElementById(id); }
 
-                // Retorna como pares combinados
-                return data.ea_ids.map((ea_id, i) => ({
-                    ea_id,
-                    user_id: data.userId[i] || null
-                }));
-            } catch (error) {
-                console.error("Erro ao buscar IDs:", error);
-                return [];
-            }
-        }
-
-
-async function fetchPlayerDetails(eaId, userId) {
-    try {
-        const fallbackRes = await fetch(`https://rip-bf5.com.br/api/player-global/get-user/?userId=${encodeURIComponent(userId)}&GetGames=true&GetGames-tags=true`, {
-            method: "GET",
-            credentials: "include"
-        });
-
-        const fallbackData = await fallbackRes.json();
-
-        if (fallbackData?.error || !fallbackData.users || fallbackData.users.length === 0) {
-            console.warn("⚠️ Nenhum usuário encontrado na API player-global.");
-            return null;
-        }
-
-        const player = fallbackData.users[0];
-
-        return {
-            userName: player.displayName || player.nickname || player.uniqueName,
-            avatar: player.avatarUrl,
-            games: player.games || []
-        };
-
-    } catch (error) {
-        console.error(`❌ Erro ao buscar jogador ${userId}:`, error);
-        return null;
-    }
+async function fetchJson(url, opts = {}){
+  try{
+    const res = await fetch(url, { ...opts });
+    const txt = await res.text();
+    try { return JSON.parse(txt); }
+    catch(e){ console.error("JSON inválido em", url, txt); return null; }
+  }catch(err){
+    console.error("Falha de rede em", url, err);
+    return null;
+  }
 }
 
+/* 1) Busca EAIDs + userIds (suporta variações) */
+async function fetchEaIds(){
+  const url = "https://rip-bf5.com.br/login/account/members/";
+  const data = await fetchJson(url, { credentials: "include" });
 
+  if(!data || data.success === false){
+    console.warn("⚠️ /login/account/members/ sem sucesso:", data);
+    return [];
+  }
 
-        async function fetchPermissions(eaId) {
-            try {
-                const res = await fetch(`https://rip-bf5.com.br/api/get-permissions/?ea_id=${eaId}`);
-                const data = await res.json();
-                return {
-                    permissions: data?.permissions || [],
-                    config: data?.config || {}
-                };
-            } catch (error) {
-                console.warn(`Erro ao buscar permissões para ${eaId}`, error);
-                return { permissions: [], config: {} };
-            }
-        }
+  const ea_ids  = data.ea_ids || data.eaid || data.EAIDs || [];
+  const userIds = data.userId || data.userIds || data.user_id || [];
 
-        function displayPlayerPlaceholder(eaId) {
-            const container = document.getElementById('players-container');
-            const playerDiv = document.createElement('div');
-            playerDiv.id = `player-${eaId}`;
-            playerDiv.style = "background: rgba(0, 0, 0, 0.5); border-radius: 10px; padding: 5px; color: white; width: 300px; text-align: center;";
-            const playerName = document.createElement('h2');
-            playerName.textContent = `Carregando...`;
-            playerDiv.appendChild(playerName);
-            container.appendChild(playerDiv);
-            pendingEaIds.push(eaId);
-        }
+  if(!Array.isArray(ea_ids) || ea_ids.length === 0){
+    console.warn("⚠️ Nenhum EAID recebido.");
+    return [];
+  }
 
-        async function updatePlayerDetails(eaId, data) {
-            const playerDiv = document.getElementById(`player-${eaId}`);
-            if (!playerDiv) return;
+  // mapeia com segurança (userId pode estar faltando)
+  return ea_ids.map((ea_id, i) => ({
+    ea_id,
+    user_id: Array.isArray(userIds) ? (userIds[i] ?? null) : (userIds || null)
+  }));
+}
 
-            const playerName = playerDiv.querySelector('h2');
-            playerName.innerHTML = `<span class="player-name">${data.userName || `ID: ${eaId}`}</span>`;
+/* 2) Converte EAID → userId (fallback) */
+async function resolveUserIdFromEAID(eaId){
+  const url = `https://rip-bf5.com.br/api/eaid/?EAID=${encodeURIComponent(eaId)}`;
+  const data = await fetchJson(url, { credentials: "include" });
+  // Ajuste conforme retorno real da sua API:
+  // Ex.: { success:true, player_id:"1016126611454" }
+  const pid = data?.player_id || data?.userId || data?.id || null;
+  if(!pid) console.warn("⚠️ Sem player_id no /api/eaid/ para", eaId, data);
+  return pid;
+}
 
+/* 3) Fallback GameTools para nome/avatar (se player-global falhar) */
+async function fetchFromGameToolsByPlayerId(userId){
+  const url = `https://api.gametools.network/bfglobal/games/?playerid=${encodeURIComponent(userId)}`;
+  const data = await fetchJson(url);
+  if(!data) return null;
+  // Tenta achar nome/avatar em possíveis campos
+  const userName = data.userName || data.username || data.name;
+  const avatar   = data.avatar || data.avatarUrl || data.image;
+  return (userName || avatar) ? { userName, avatar, games: [] } : null;
+}
 
-            const avatarUrl = data.avatar || 'https://via.placeholder.com/100';
+/* 4) Busca detalhes do jogador (usa userId; se faltar, tenta resolver por EAID) */
+async function fetchPlayerDetails(eaId, userId){
+  try{
+    let uid = userId;
+    if(!uid){
+      uid = await resolveUserIdFromEAID(eaId);
+      if(!uid) return null;
+    }
 
-            const playerAvatar = document.createElement('img');
-            playerAvatar.src = avatarUrl;
-            playerAvatar.alt = `Avatar de ${data.userName || 'Jogador'}`;
-            playerAvatar.style = "border-radius: 50%; width: 100px; height: 100px; margin-top: 10px;";
-            playerDiv.appendChild(playerAvatar);
+    const url = `https://rip-bf5.com.br/api/player-global/get-user/?userId=${encodeURIComponent(uid)}&GetGames=true&GetGames-tags=true`;
+    const data = await fetchJson(url, { method: "GET", credentials: "include" });
 
-            const gamesList = (data.games || [])
-                .map(game => game)
-                .join(", ");
+    if (data?.error || !Array.isArray(data?.users) || data.users.length === 0) {
+      console.warn("⚠️ player-global falhou, tentando GameTools para", uid);
+      const gt = await fetchFromGameToolsByPlayerId(uid);
+      return gt ? gt : null;
+    }
 
-            const playerGames = document.createElement('p');
-            playerGames.textContent = `Jogos: ${gamesList || "Nenhum"}`;
-            playerGames.className = "games-list";
-            playerDiv.appendChild(playerGames);
+    const player = data.users[0] || {};
+    return {
+      userName: player.displayName || player.nickname || player.uniqueName || player.name,
+      avatar: player.avatarUrl || player.avatar || null,
+      games: Array.isArray(player.games) ? player.games.map(g => g?.name || g?.title || g).filter(Boolean) : []
+    };
 
+  }catch(err){
+    console.error(`❌ Erro ao buscar jogador uid=${userId} ea=${eaId}:`, err);
+    return null;
+  }
+}
 
+/* 5) Permissões/Config */
+async function fetchPermissions(eaId){
+  const data = await fetchJson(`https://rip-bf5.com.br/api/get-permissions/?ea_id=${encodeURIComponent(eaId)}`);
+  return {
+    permissions: Array.isArray(data?.permissions) ? data.permissions : [],
+    config: data?.config || {}
+  };
+}
 
-            const { permissions, config } = await fetchPermissions(eaId);
-if (permissions[3] === 1) {
-    const anima = config.anima || 1;
+/* 6) Placeholder inicial */
+function displayPlayerPlaceholder(eaId){
+  const container = byId('players-container');
+  const card = document.createElement('div');
+  card.id = `player-${eaId}`;
+  card.style.cssText = "background: rgba(0,0,0,0.5); border-radius: 10px; padding: 10px; color: white; width: 300px; text-align: center; min-height: 180px; display:flex; flex-direction:column; align-items:center; justify-content:center;";
+  card.innerHTML = `<h2>Carregando...</h2>`;
+  container.appendChild(card);
+  if(!pendingEaIds.includes(eaId)) pendingEaIds.push(eaId);
+}
+
+/* 7) Render final do card (limpa antes de montar pra evitar duplicatas) */
+async function updatePlayerDetails(eaId, data){
+  const card = byId(`player-${eaId}`);
+  if(!card) return;
+
+  // limpa tudo
+  card.innerHTML = "";
+
+  const h2 = document.createElement('h2');
+  h2.innerHTML = `<span class="player-name">${data.userName || `ID: ${eaId}`}</span>`;
+  card.appendChild(h2);
+
+  const avatarUrl = data.avatar || 'https://via.placeholder.com/100';
+  const img = document.createElement('img');
+  img.src = avatarUrl;
+  img.alt = `Avatar de ${data.userName || 'Jogador'}`;
+  img.style.cssText = "border-radius: 50%; width: 100px; height: 100px; margin-top: 10px;";
+  card.appendChild(img);
+
+  const gamesList = (Array.isArray(data.games) ? data.games : []).join(", ");
+  const pGames = document.createElement('p');
+  pGames.textContent = `Jogos: ${gamesList || "Nenhum"}`;
+  pGames.className = "games-list";
+  pGames.style.margin = "10px 0 0";
+  card.appendChild(pGames);
+
+  // badge + background (se tiver permissão)
+  const { permissions, config } = await fetchPermissions(eaId);
+  if (permissions[3] === 1) {
+    const anima = Number(config.anima) || 1;
     const proBadge = document.createElement('div');
     proBadge.className = `pro-badge anima-${anima}`;
     proBadge.textContent = '🔥 PRO';
-    playerDiv.appendChild(proBadge);
+    card.appendChild(proBadge);
 
-    // 🎨 Verifica e aplica o background, se for png ou gif
-    const bg = config.background || "";
-if (/\.(png|jpg|gif)$/i.test(bg)) {
-        const bgUrl = `https://choriper.api-rip-bf5.org/upload/upload/view/${bg}`;
-        playerDiv.style.backgroundImage = `url('${bgUrl}')`;
-        playerDiv.style.backgroundSize = 'cover';
-        playerDiv.style.backgroundPosition = 'center';
+    // aplica bg se for imagem conhecida
+    const bg = (config.background || "").trim();
+    if (/\.(png|jpg|jpeg|gif|webp)$/i.test(bg)) {
+      const bgUrl = `https://choriper.api-rip-bf5.org/upload/upload/view/${bg}`;
+      card.style.backgroundImage = `url('${bgUrl}')`;
+      card.style.backgroundSize = 'cover';
+      card.style.backgroundPosition = 'center';
     }
+  }
+
+  // remove da fila pendente
+  pendingEaIds = pendingEaIds.filter(id => id !== eaId);
 }
 
+/* 8) Fluxo principal */
+async function loadPlayers(){
+  const players = await fetchEaIds();
+  const container = byId('players-container');
 
-            pendingEaIds = pendingEaIds.filter(id => id !== eaId);
-        }
+  // sem players → mostra aviso
+  if(!players || players.length === 0){
+    container.innerHTML = `<div style="color:#fff; font-weight:bold;">Nenhum jogador encontrado. Verifique se está logado e se /login/account/members/ está retornando dados.</div>`;
+    return;
+  }
 
-async function loadPlayers() {
-    const players = await fetchEaIds(); // agora retorna array de objetos { ea_id, user_id }
-    const container = document.getElementById('players-container');
-    const successEaIds = [];
-    const failedEaIds = [];
+  const successEaIds = [];
+  const failedEaIds = [];
 
-    // Mostrar placeholders primeiro
-    for (const { ea_id } of players) {
-        displayPlayerPlaceholder(ea_id);
+  // placeholders
+  for (const { ea_id } of players) displayPlayerPlaceholder(ea_id);
+
+  // resolve todos em paralelo
+  await Promise.all(players.map(async ({ ea_id, user_id }) => {
+    const data = await fetchPlayerDetails(ea_id, user_id);
+    if (data && (data.userName || data.avatar)) {
+      await updatePlayerDetails(ea_id, data);
+      successEaIds.push(ea_id);
+    } else {
+      failedEaIds.push(ea_id);
     }
+  }));
 
-    // Faz as requisições em paralelo com acesso ao user_id
-    const promises = players.map(async ({ ea_id, user_id }) => {
-        const data = await fetchPlayerDetails(ea_id, user_id); // agora você pode usar os dois
-        if (data && data.userName) {
-            await updatePlayerDetails(ea_id, data);
-            successEaIds.push(ea_id);
-        } else {
-            failedEaIds.push(ea_id);
-        }
-    });
+  // manda os falhados para o fim (visualmente)
+  for (const id of failedEaIds) {
+    const div = byId(`player-${id}`);
+    if (div) container.appendChild(div);
+  }
 
-    await Promise.all(promises);
+  console.log(`✅ Sucesso: ${successEaIds.length} | ❌ Falha: ${failedEaIds.length}`);
 
-    // Reorganiza os que falharam para o fim
-    for (const id of failedEaIds) {
-        const div = document.getElementById(`player-${id}`);
-        if (div) container.appendChild(div);
-    }
-
-    console.log(`✅ Sucesso: ${successEaIds.length} | ❌ Falha: ${failedEaIds.length}`);
+  // inicia o retry uma única vez
+  if(!intervalStarted){
+    intervalStarted = true;
+    setInterval(retryPendingPlayers, 16000);
+  }
 }
 
+/* 9) Recarrega só os pendentes */
+async function retryPendingPlayers(){
+  if (pendingEaIds.length === 0) return;
+  console.log(`🔁 Tentando recarregar ${pendingEaIds.length} jogadores...`);
 
+  const mapping = await fetchEaIds();
+  for (const eaId of [...pendingEaIds]) {
+    const pair = mapping.find(p => p.ea_id === eaId);
+    if(!pair) continue;
 
-
-async function retryPendingPlayers() {
-    if (pendingEaIds.length === 0) return;
-
-    console.log(`🔁 Tentando recarregar ${pendingEaIds.length} jogadores...`);
-
-    // Recarrega o mapa completo ea_id → user_id
-    const players = await fetchEaIds();
-
-    for (const eaId of [...pendingEaIds]) {
-        const player = players.find(p => p.ea_id === eaId);
-        if (!player) continue;
-
-        const data = await fetchPlayerDetails(player.ea_id, player.user_id);
-        if (data) await updatePlayerDetails(player.ea_id, data);
+    const data = await fetchPlayerDetails(pair.ea_id, pair.user_id);
+    if (data && (data.userName || data.avatar)) {
+      await updatePlayerDetails(pair.ea_id, data);
     }
+  }
 }
 
+// inicia
+loadPlayers();
+</script>
 
-        loadPlayers();
-        setInterval(retryPendingPlayers, 16000);
-    </script>
 </body>
