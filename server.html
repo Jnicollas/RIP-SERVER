@@ -1,23 +1,18 @@
-<iframe 
-  title="perfil"
-  src="https://rip-bf5.com.br/login/perfil/"
-  style="position: fixed; top: 20px; right: 20px; width: 220px; height: 120px; border: none; background: transparent; overflow: hidden;"
-></iframe>
-
 <main class="wp-block-group" style="margin-top:0">
   <!-- Fundo de imagem -->
-  <div style="
-    position: fixed;
-    top: 0; left: 0;
-    width: 100%; height: 100%;
-    overflow: hidden;
-    z-index: -1;
-    background: url('https://rip-bf5.com.br/wp-content/uploads/2025/05/server.jpg') center center / cover no-repeat;
-  "></div>
+<div style="
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  overflow: hidden;
+  z-index: -1;
+  background: url('https://rip-bf5.com.br/wp-content/uploads/2025/05/server.jpg') center center / cover no-repeat;
+  pointer-events: none; /* 👈 evita bloquear toques */
+"></div>
+
 
   <audio id="sound1" preload="auto" src="https://rip-bf5.com.br/wp-content/uploads/2024/12/UI_Flag_Capturing_Stopped_Wave-0-0-0.mp3"></audio>
   <audio id="sound2" preload="auto" src="https://rip-bf5.com.br/wp-content/uploads/2024/12/UI_Flag_Capturing_Wave-0-8-0.mp3"></audio>
-</main>
 
     <style>
 /* ====== Servidores ====== */
@@ -229,12 +224,14 @@
 
 
 body::before {
-    content: "";
-    position: fixed;
-    top: 0; left: 0; right: 0; bottom: 0;
-    background: rgba(0, 0, 0, 0.4);
-    z-index: -1;
+  content: "";
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 0;
+  pointer-events: none; /* 👈 importantíssimo no mobile */
 }
+
 
 
 
@@ -376,7 +373,7 @@ p:empty {
                 <option value="10">10</option>
                 <option value="20">20</option>
                 <option value="100">100</option>
-                <option value="100">250</option>
+                <option value="250">250</option>
             </select>
     
             <select id="platform-select" 
@@ -410,7 +407,23 @@ p:empty {
 
 <script>
 
+
 const defaultApiUrl = "https://api.gametools.network/bfv/servers/?platform=pc&limit=10&region=sam&lang=pt-br";
+
+async function safeFetch(url, opts = {}) {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), opts.timeout ?? 12000);
+  try {
+    const res = await fetch(url, { cache: "no-store", ...opts, signal: controller.signal });
+    if (!res.ok) throw new Error(`HTTP ${res.status} em ${url}`);
+    return res;
+  } finally {
+    clearTimeout(id);
+  }
+}
+
+
+
 
 async function fetchServerData(query = "", customRegion = null) {
     const region = customRegion || document.getElementById("region-select")?.value || "sam";
@@ -421,7 +434,7 @@ async function fetchServerData(query = "", customRegion = null) {
     const apiUrl = `https://api.gametools.network/bfv/servers/?platform=${platform}&limit=${limit}&region=${region}&lang=pt-br&name=${encodedQuery}`;
 
     try {
-        const response = await fetch(apiUrl);
+        const response = await safeFetch(apiUrl);
         const data = await response.json();
 
         if (data.servers && data.servers.length > 0) {
@@ -437,21 +450,17 @@ async function fetchServerData(query = "", customRegion = null) {
 
 
         async function fetchAdmData() {
-            try {
-                const response = await fetch('https://rip-bf5.com.br/arquivos-CENTER/adm-oficial-verificado.json');
-                if (!response.ok) {
-                    throw new Error(`Erro ao carregar o arquivo JSON: ${response.statusText}`);
-                }
-                return await response.json();
-            } catch (error) {
-                console.error('Erro ao buscar dados do arquivo JSON:', error);
-                return null;
-            }
+          try {
+            return await safeFetch('https://rip-bf5.com.br/arquivos-CENTER/adm-oficial-verificado.json').then(r => r.json());
+          } catch (error) {
+            console.error('Erro ao buscar dados do arquivo JSON:', error);
+            return null;
+          }
         }
 
         async function getLoggedUserId() {
     try {
-        const response = await fetch('https://rip-bf5.com.br/login/account/', {
+        const response = await safeFetch('https://rip-bf5.com.br/login/account/', {
             method: 'POST',
             body: new URLSearchParams({ action: 'check-login' })
         });
@@ -471,12 +480,12 @@ async function fetchServerData(query = "", customRegion = null) {
 
 
 async function displayServerData(servers) {
-    const admData = await fetchAdmData();
-    const loggedUserId = await getLoggedUserId();
-    const container = document.getElementById("server-container");
-
-    container.innerHTML = servers.map(server => {
-        const admInfo = admData[server.ownerId] || [0, 0, 0, 0];
+      const admData = (await fetchAdmData()) || {};   // ← garante objeto
+      const loggedUserId = await getLoggedUserId();
+      const container = document.getElementById("server-container");
+    
+      container.innerHTML = servers.map(server => {
+        const admInfo = admData[server.ownerId] || [0, 0, 0, 0]; // ok agora
         const [isVerified, isOfficial, isChoriper, isOfficialBoB] = admInfo;
         const isOwnedByUser = loggedUserId && server.ownerId && loggedUserId === server.ownerId ? 1 : 0;
         const showOwnedByUserLabel = isOwnedByUser === 1 ? '<span style="color: #FF9800;">👤 Seu Servidor</span>' : '';
@@ -511,7 +520,7 @@ async function displayServerData(servers) {
 }
 async function getCookie(name) {
     try {
-        const res = await fetch("https://rip-bf5.com.br/api/token/", {
+        const res = await safeFetch("https://rip-bf5.com.br/api/token/", {
             method: "POST",
             headers: { "Content-Type": "application/x-www-form-urlencoded" }
         });
@@ -536,7 +545,7 @@ async function analisarServidor(gameId, buttonElement) {
         const token = await getCookie("api_token");
         const payload = { gameId, api_token: token };
 
-        const response = await fetch("https://rip-bf5.com.br/api/server-database-notes/", {
+        const response = await safeFetch("https://rip-bf5.com.br/api/server-database-notes/", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload)
@@ -573,7 +582,7 @@ async function fetchAllPlayerStats(playerIds) {
     if (!playerIds || playerIds.length === 0) return [];
 
     try {
-        const response = await fetch('https://api.bfvrobot.net/api/worker/player/getBatchAllStats', {
+        const response = await safeFetch('https://api.bfvrobot.net/api/worker/player/getBatchAllStats', {
             method: 'POST',
             headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
             body: JSON.stringify({ personaIds: playerIds, detail: false })
@@ -610,7 +619,7 @@ async function verificarBanimentos(playerIds) {
             formData.append("api_token", token);
         }
 
-        const response = await fetch("https://rip-bf5.com.br/api/manager/choriper-api/verificar_ids/", {
+        const response = await safeFetch("https://rip-bf5.com.br/api/manager/choriper-api/verificar_ids/", {
             method: "POST",
             headers: {
                 "Content-Type": "application/x-www-form-urlencoded"
@@ -724,143 +733,125 @@ async function verificarBanimentos(playerIds) {
 let isFetchingServerDetails = false;
 
 async function showServerDetails(gameId, ownerId) {
-    if (isFetchingServerDetails) return;
+  if (isFetchingServerDetails) return;
 
-    // Atualiza a URL com ?server_name=... sem recarregar a página
-        if (ownerId && gameId) {
-        try {
-            const res = await fetch(`https://api.gametools.network/bfv/detailedserver/?gameid=${gameId}&lang=pt-br&region=all&platform=pc`);
-            const data = await res.json();
-            if (data?.prefix) {
-            const url = new URL(window.location.href);
-            url.searchParams.set("server_name", data.prefix);
-            url.searchParams.delete("gameid"); // Remove ?gameid da URL se estiver presente
-            history.replaceState(null, "", url);
-            }
-        } catch (err) {
-            console.warn("⚠️ Não foi possível atualizar a URL:", err);
-        }
+  // Atualiza a URL com ?server_name=... sem recarregar a página
+  if (ownerId && gameId) {
+    try {
+      const data = await safeFetch(
+        `https://api.gametools.network/bfv/detailedserver/?gameid=${gameId}&lang=pt-br&region=all&platform=pc`
+      ).then(r => r.json());
+
+      if (data?.prefix) {
+        const url = new URL(window.location.href);
+        url.searchParams.set("server_name", data.prefix);
+        url.searchParams.delete("gameid");
+        history.replaceState(null, "", url);
+      }
+    } catch (err) {
+      console.warn("⚠️ Não foi possível atualizar a URL:", err);
     }
-
-    isFetchingServerDetails = true;
-
-    const container = document.getElementById("server-container");
-    container.innerHTML = `<p style="color: white; text-align: center;">Carregando servidor...</p>`;
-
-    if (!gameId || ["null", "undefined"].includes(gameId)) {
-        console.error("Erro: gameId inválido:", gameId);
-        container.innerHTML = `<p style="color: red; text-align: center;">Erro: gameId inválido.</p>`;
-        isFetchingServerDetails = false;
-        return;
-    }
-
-    const apiUrl = `https://api.gametools.network/bfv/detailedserver/?gameid=${encodeURIComponent(gameId)}&lang=pt-br&region=all&platform=pc`;
-    const playersApiUrl = `https://api.gametools.network/bfv/players/?gameId=${gameId}`;
-
-try {
-  const fetches = [
-    fetch(apiUrl).then(res =>
-      res.ok ? res.json() : Promise.reject(new Error(`Erro API servidor: ${res.status}`))
-    )
-  ];
-
-  // 👇 Não depende mais do parâmetro ownerId
-  //    Deixa o segundo item do Promise.all como null por compat
-  fetches.push(Promise.resolve(null));
-
-  const [serverResponse, _avatarUrl] = await Promise.all(fetches);
-  console.log("✅ serverResponse:", serverResponse);
-
-  if (!serverResponse?.teams || !serverResponse?.rotation) {
-    throw new Error("Detalhes incompletos do servidor.");
   }
 
-  displayBasicServerData(serverResponse, null); // mostra os dados do servidor logo
+  isFetchingServerDetails = true;
 
-  // 🔄 carrega a parte do pelotão em segundo plano usando o ID do dono do response
-  const ownerPersonaId = serverResponse?.owner?.id;
-  if (ownerPersonaId) {
-    setTimeout(() => {
-      fetchOwnerAvatar(ownerPersonaId).then(data => {
-        if (data) {
-          // Remove o placeholder antigo
-          const loadingDiv = document.getElementById("platoon-loading");
-          if (loadingDiv) loadingDiv.remove();
+  const container = document.getElementById("server-container");
+  container.innerHTML = `<p style="color: white; text-align: center;">Carregando servidor...</p>`;
 
-          const platoonHTML = `
-            <div class="platoon-info">
-              <a href="https://rip-bf5.com.br/platoons/?id=${data.id}" target="_blank" style="text-decoration: none; color: inherit;">
-                <img class="avatar-img" src="${data.emblem}" alt="Emblema do Pelotão">
-                <div class="platoon-name">${data.name}</div>
-                <div class="platoon-description">${data.description}</div>
-              </a>
-            </div>`;
-          document.querySelector(".server-info-container")
-            ?.insertAdjacentHTML("beforeend", platoonHTML);
-        }
-      }).catch(err => console.warn("fetchOwnerAvatar falhou:", err));
-    }, 300); // espera 300ms
+  if (!gameId || ["null", "undefined"].includes(String(gameId))) {
+    console.error("Erro: gameId inválido:", gameId);
+    container.innerHTML = `<p style="color: red; text-align: center;">Erro: gameId inválido.</p>`;
+    isFetchingServerDetails = false;
+    return;
   }
 
+  const apiUrl = `https://api.gametools.network/bfv/detailedserver/?gameid=${encodeURIComponent(gameId)}&lang=pt-br&region=all&platform=pc`;
+  const playersApiUrl = `https://api.gametools.network/bfv/players/?gameId=${gameId}`;
 
-        // 🔁 Tenta buscar jogadores até 3 vezes se não retornar dados válidos
-        // 🔁 Tenta buscar jogadores até 4 vezes, com timeout extra
-        let playersData;
-        let attempts = 0;
-        while (attempts < 4) {
-            try {
-                const response = await fetch(playersApiUrl, { cache: "no-store" });
-                if (!response.ok) throw new Error(`Erro na tentativa ${attempts + 1}: ${response.status}`);
-                playersData = await response.json();
+  try {
+    // Detalhes do servidor
+    const [serverResponse] = await Promise.all([
+      safeFetch(apiUrl).then(r => r.json()),
+      Promise.resolve(null) // compat com _avatarUrl se quiser usar no futuro
+    ]);
 
-                if (playersData?.teams?.length > 0) break;
-            } catch (err) {
-                console.warn(`Tentativa ${attempts + 1} falhou:`, err);
-            }
-
-            await new Promise(resolve => setTimeout(resolve, 2500)); // espera maior
-            attempts++;
-        }
-
-        if (!playersData?.teams || playersData.teams.length === 0) {
-            throw new Error("⚠️ Dados de jogadores não foram carregados após várias tentativas.");
-        }
-
-
-        if (!playersData?.teams || playersData.teams.length === 0) {
-            throw new Error("Dados de jogadores incompletos após múltiplas tentativas.");
-        }
-
-        updatePlayersData(playersData.teams, serverResponse);
-
-    } catch (error) {
-        console.error("Erro ao carregar detalhes do servidor:", error);
-        container.innerHTML = `<p style="color: red; text-align: center;">${error.message}</p>`;
-    } finally {
-        isFetchingServerDetails = false;
+    if (!serverResponse?.teams || !serverResponse?.rotation) {
+      throw new Error("Detalhes incompletos do servidor.");
     }
+
+    displayBasicServerData(serverResponse, null);
+
+    // Pelotão em segundo plano
+    const ownerPersonaId = serverResponse?.owner?.id;
+    if (ownerPersonaId) {
+      setTimeout(() => {
+        fetchOwnerAvatar(ownerPersonaId)
+          .then(data => {
+            if (!data) return;
+            document.getElementById("platoon-loading")?.remove();
+            document
+              .querySelector(".server-info-container")
+              ?.insertAdjacentHTML(
+                "beforeend",
+                `
+                <div class="platoon-info">
+                  <a href="https://rip-bf5.com.br/platoons/?id=${data.id}" target="_blank" style="text-decoration: none; color: inherit;">
+                    <img class="avatar-img" src="${data.emblem}" alt="Emblema do Pelotão">
+                    <div class="platoon-name">${data.name}</div>
+                    <div class="platoon-description">${data.description}</div>
+                  </a>
+                </div>
+              `
+              );
+          })
+          .catch(err => console.warn("fetchOwnerAvatar falhou:", err));
+      }, 300);
+    }
+
+    // Jogadores com retry
+    let playersData, attempts = 0;
+    while (attempts < 4) {
+      try {
+        playersData = await safeFetch(`${playersApiUrl}&_t=${Date.now()}`, { cache: "no-store" })
+          .then(r => r.json());
+        if (playersData?.teams?.length) break;
+      } catch (err) {
+        console.warn(`Tentativa ${attempts + 1} falhou:`, err);
+      }
+      await new Promise(r => setTimeout(r, 2500));
+      attempts++;
+    }
+    if (!playersData?.teams?.length) {
+      throw new Error("⚠️ Dados de jogadores não foram carregados após várias tentativas.");
+    }
+
+    updatePlayersData(playersData.teams, serverResponse);
+  } catch (error) {
+    console.error("Erro ao carregar detalhes do servidor:", error);
+    container.innerHTML = `<p style="color: red; text-align: center;">${error.message}</p>`;
+  } finally {
+    isFetchingServerDetails = false;
+  }
 }
+
 
 
 async function fetchOwnerAvatar(ownerId) {
-    try {
-        const response = await fetch(`https://api.gametools.network/bfv/all/?format_values=false&lang=pt-br&platform=pc&playerid=${ownerId}`);
-        if (!response.ok) throw new Error("Erro ao carregar dados do jogador");
-
-        const data = await response.json();
-        if (!data.activePlatoon) return null;
-
-        return {
-            emblem: data.activePlatoon.emblem || null,
-            id: data.activePlatoon.id || null,
-            name: data.activePlatoon.name || "Pelotão Desconhecido",
-            description: data.activePlatoon.description || ""
-        };
-    } catch (error) {
-        console.error("Erro na função fetchOwnerAvatar:", error);
-        return null;
-    }
+  try {
+    const data = await safeFetch(`https://api.gametools.network/bfv/all/?format_values=false&lang=pt-br&platform=pc&playerid=${ownerId}`).then(r => r.json());
+    if (!data.activePlatoon) return null;
+    return {
+      emblem: data.activePlatoon.emblem || null,
+      id: data.activePlatoon.id || null,
+      name: data.activePlatoon.name || "Pelotão Desconhecido",
+      description: data.activePlatoon.description || ""
+    };
+  } catch (error) {
+    console.error("Erro na função fetchOwnerAvatar:", error);
+    return null;
+  }
 }
+
 
 
 async function displayBasicServerData(server, avatarUrl) {
@@ -873,7 +864,7 @@ async function displayBasicServerData(server, avatarUrl) {
     const fetchDescription = async () => {
         if (!descriptionApiUrl) return null;
         try {
-            const response = await fetch(descriptionApiUrl);
+            const response = await safeFetch(descriptionApiUrl);
             if (response.ok) {
                 const data = await response.json();
                 return data.server || null;
@@ -1018,57 +1009,42 @@ ${avatarUrl ? `
 let isFetchingPlayerStats = false; // Flag para impedir requisições repetidas
 
 async function updatePlayersData(teams, server, retry = 0) {
-    console.log("⏳ updatePlayersData chamada", { teams, server, retry });
+  console.log("⏳ updatePlayersData chamada", { teams, server, retry });
 
-    if (isFetchingPlayerStats) return;
-    isFetchingPlayerStats = true;
+  if (isFetchingPlayerStats) return;
+  isFetchingPlayerStats = true;
 
-    const cacheKey = `playersData_${server.gameId}`;
-    const cached = localStorage.getItem(cacheKey);
-    const now = Date.now();
+  try {
+    // duas tentativas “back-to-back” sem cache
+    const playersResponse1 = await safeFetch(`https://api.gametools.network/bfv/players/?gameId=${server.gameId}`, { timeout: 12000 });
+    const playersData1 = await playersResponse1.json();
 
-    // ⚡ Verifica se há cache válido (1 minuto)
-    if (cached) {
-        const { timestamp, data } = JSON.parse(cached);
-        if (now - timestamp < 30000) {
-            console.log("⚡ Usando cache de jogadores");
-            renderPlayersFromTeams(data, server);
-            isFetchingPlayerStats = false;
-            return;
-        }
+    await new Promise(resolve => setTimeout(resolve, 300)); // pequeno delay
+
+    const playersResponse2 = await safeFetch(`https://api.gametools.network/bfv/players/?gameId=${server.gameId}`, { timeout: 12000 });
+    const playersData2 = await playersResponse2.json();
+
+    const finalTeams = (playersData2?.teams?.length > 0 ? playersData2.teams : playersData1.teams) || [];
+
+    // Atualiza variáveis globais (sem cache)
+    window.lastTeams = finalTeams;
+    window.lastServer = server;
+
+    if (!finalTeams.length) {
+      document.getElementById("server-container").innerText = "Nenhum jogador no momento.";
+      return;
     }
 
-    // Tentativas de requisição dupla
-    try {
-        const playersResponse1 = await fetch(`https://api.gametools.network/bfv/players/?gameId=${server.gameId}`);
-        const playersData1 = await playersResponse1.json();
+    renderPlayersFromTeams(finalTeams, server);
 
-        await new Promise(resolve => setTimeout(resolve, 300)); // pequeno delay
-
-        const playersResponse2 = await fetch(`https://api.gametools.network/bfv/players/?gameId=${server.gameId}`);
-        const playersData2 = await playersResponse2.json();
-
-const finalTeams = playersData2?.teams?.length > 0 ? playersData2.teams : playersData1.teams;
-
-// Salva no cache
-localStorage.setItem(cacheKey, JSON.stringify({
-    timestamp: now,
-    data: finalTeams
-}));
-
-// 🔁 Atualiza para render loop
-window.lastTeams = finalTeams;
-window.lastServer = server;
-
-renderPlayersFromTeams(finalTeams, server);
-
-    } catch (err) {
-        console.error("❌ Erro nas tentativas duplas de fetch com cache:", err);
-        document.getElementById("server-container").innerText = "Erro ao carregar lista de jogadores.";
-    } finally {
-        isFetchingPlayerStats = false;
-    }
+  } catch (err) {
+    console.error("❌ Erro ao buscar jogadores (sem cache):", err);
+    document.getElementById("server-container").innerText = "Erro ao carregar lista de jogadores.";
+  } finally {
+    isFetchingPlayerStats = false;
+  }
 }
+
 
 // Função extraída para renderizar
 async function renderPlayersFromTeams(teams, server) {
@@ -1285,7 +1261,7 @@ function searchServer() {
 
 
 function Core() {
-  window.location.href = "?fetchServer=core";
+  window.location.href = "?fetchServer=ore";
 }
 
 function DICE() {
@@ -1343,6 +1319,7 @@ setInterval(() => {
 }, 1000);
 
 // Atualização automática dos jogadores a cada 16 segundos
+// Atualização automática dos jogadores a cada 30 segundos
 setInterval(async () => {
   try {
     if (
@@ -1352,18 +1329,19 @@ setInterval(async () => {
     ) {
       const gameId = lastServer.gameId;
 
-      const response = await fetch(`https://api.gametools.network/bfv/players/?gameId=${gameId}&_t=${Date.now()}`);
-      if (!response.ok) throw new Error("Erro ao atualizar dados de jogadores");
-
-      const data = await response.json();
+      const data = await safeFetch(
+        `https://api.gametools.network/bfv/players/?gameId=${gameId}&_t=${Date.now()}`
+      ).then(r => r.json());
 
       if (data?.teams?.length > 0) {
         // Atualiza variáveis globais
         window.lastTeams = data.teams;
 
-        // Limpa as divs para forçar re-renderização
-        document.getElementById('div0').innerHTML = '';
-        document.getElementById('div1').innerHTML = '';
+        // Limpa as divs para forçar re-renderização (com guard)
+        const d0 = document.getElementById('div0');
+        const d1 = document.getElementById('div1');
+        if (d0) d0.innerHTML = '';
+        if (d1) d1.innerHTML = '';
 
         // Re-renderiza os jogadores com novos dados
         renderPlayersFromTeams(data.teams, lastServer);
@@ -1377,50 +1355,81 @@ setInterval(async () => {
 }, 30000);
 
 
+
 // ⛔ Só executa fetchServerData("rip") se NÃO houver gameid nem server_name na URL
-window.addEventListener("DOMContentLoaded", async () => {
-  const urlParams = new URLSearchParams(window.location.search);
-  const gameId = urlParams.get("gameid");
-  const serverName = urlParams.get("server_name");
-  const fetchServer = urlParams.get("fetchServer");
-
-  // Restaura os selects
-  const region = urlParams.get("region");
-  const limit = urlParams.get("limit");
-  const platform = urlParams.get("platform");
-
-  if (region) document.getElementById("region-select").value = region;
-  if (limit) document.getElementById("limit-select").value = limit;
-  if (platform) document.getElementById("platform-select").value = platform;
-
-  if (gameId) {
-    showServerDetails(gameId, null);
-  } else if (serverName) {
+(function boot() {
+  async function start() {
     try {
-      const encodedName = encodeURIComponent(serverName);
-      const res = await fetch(`https://api.gametools.network/bfv/servers/?platform=pc&limit=1&region=all&lang=pt-br&name=${encodedName}`);
-      const data = await res.json();
+      const urlParams = new URLSearchParams(window.location.search);
+      const gameId     = urlParams.get("gameid");
+      const serverName = urlParams.get("server_name");
+      const fetchServer= urlParams.get("fetchServer");
 
-      if (data?.servers?.length > 0) {
-        const server = data.servers[0];
-        showServerDetails(server.gameId, server.ownerId);
+      // Restaura selects
+      const region   = urlParams.get("region");
+      const limit    = urlParams.get("limit");
+      const platform = urlParams.get("platform");
+
+      if (region)   document.getElementById("region-select").value = region;
+      if (limit)    document.getElementById("limit-select").value = limit;
+      if (platform) document.getElementById("platform-select").value = platform;
+
+      if (gameId) {
+        showServerDetails(gameId, null);
+      } else if (serverName) {
+        try {
+          const encodedName = encodeURIComponent(serverName);
+          const res  = await safeFetch(`https://api.gametools.network/bfv/servers/?platform=pc&limit=1&region=all&lang=pt-br&name=${encodedName}`);
+          const data = await res.json();
+          if (data?.servers?.length > 0) {
+            const server = data.servers[0];
+            showServerDetails(server.gameId, server.ownerId);
+          } else {
+            document.getElementById("server-container").innerHTML =
+              `<p style="color:red; text-align:center;">Servidor "${serverName}" não encontrado.</p>`;
+          }
+        } catch (err) {
+          console.error("Erro ao buscar por nome:", err);
+          document.getElementById("server-container").innerHTML =
+            `<p style="color:red; text-align:center;">Erro ao buscar servidor "${serverName}".</p>`;
+        }
+      } else if (fetchServer !== null && fetchServer !== undefined) {
+        // se a query existe (mesmo vazia), busca todos da região
+        fetchServerData(fetchServer || "");
       } else {
-        document.getElementById("server-container").innerHTML = `<p style="color:red; text-align:center;">Servidor "${serverName}" não encontrado.</p>`;
+        // fallback
+        fetchServerData("rip", "all");
       }
-    } catch (err) {
-      console.error("Erro ao buscar por nome:", err);
-      document.getElementById("server-container").innerHTML = `<p style="color:red; text-align:center;">Erro ao buscar servidor "${serverName}".</p>`;
+    } catch (e) {
+      console.error("Falha no start():", e);
+      const c = document.getElementById("server-container");
+      if (c) c.textContent = "Erro ao iniciar a página.";
     }
-  } else if (fetchServer) {
-    fetchServerData(fetchServer);
-} else if (urlParams.has("fetchServer")) {
-  fetchServerData(""); // busca todos da região
-} else {
-  fetchServerData("rip", "all"); // fallback verdadeiro, se nada for enviado
-}
+  }
 
-});
+  // Garante que dispare no document (não no window)
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", () => {
+      requestAnimationFrame(start);
+      setTimeout(start, 350); // fallback iOS
+    }, { once: true });
+  } else {
+    // DOM já pronto
+    requestAnimationFrame(start);
+    setTimeout(start, 350);
+  }
 
-        </script>
+  // Tocar uma vez após gesto do usuário (desbloqueia áudio em iOS)
+  window.addEventListener("touchstart", function onTouch() {
+    const a1 = document.getElementById('sound1');
+    const a2 = document.getElementById('sound2');
+    a1 && a1.load();
+    a2 && a2.load();
+    window.removeEventListener("touchstart", onTouch);
+  }, { passive: true });
+})();
+
+</script>
+
     </div>
 </main>
