@@ -1,5 +1,135 @@
-<body>
-    <style>
+<style>
+body {
+      color: #ffffff;
+      --wp--style--root--padding-top: 0;
+      --wp--style--root--padding-right: 0; /* Example value */
+      --wp--style--root--padding-bottom: 0;
+      --wp--style--root--padding-left: 0; /* Example value */
+    }
+h3 {
+color: #ffffff;
+}
+
+
+
+
+
+/* permitir click no overlay quando estiver visível */
+.player-card:hover .games-overlay{
+  opacity:1; transform:scale(1);
+  pointer-events:auto;            /* <--- antes era none no container base */
+}
+
+/* deixar claro que dá pra clicar */
+.achv-stat{background:#0f1622;border:1px solid #223044;padding:10px 12px;border-radius:12px;min-width:140px}
+.achv-stat .n{font-weight:700;font-size:18px}
+.achv-grid{display:grid;grid-template-columns:repeat(1,minmax(0,1fr));gap:12px}
+@media (min-width:640px){.achv-grid{grid-template-columns:repeat(2,minmax(0,1fr));}}
+@media (min-width:992px){.achv-grid{grid-template-columns:repeat(3,minmax(0,1fr));}}
+.achv-card{display:flex;gap:12px;align-items:flex-start;background:#121821;border:1px solid #1b2431;border-radius:14px;padding:12px}
+.achv-card:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(0,0,0,.25);transition:transform .12s ease, box-shadow .12s ease}
+.achv-icon{width:56px;height:56px;border-radius:10px;flex:0 0 56px;background:#0c121b;border:1px solid #223044;display:grid;place-items:center;overflow:hidden}
+.achv-icon img{width:100%;height:100%;object-fit:cover}
+.achv-badge{padding:4px 8px;border-radius:999px;font-size:12px;border:1px solid #223044;background:#0c121b;color:#9bb0c3}
+.achv-badge.good{border-color:#2e7d32;color:#a4ffb0;background:#0f1a11}
+.achv-btn.achv-active{border-color:#2e7d32;background:#0e1710}
+/* chip “Jogo” que vira botão */
+.chip-btn{
+  position: relative;
+  display:inline-flex;align-items:center;gap:6px;
+  background:#1e2631;padding:6px 10px;border-radius:999px;
+  border:1px solid #223044;color:#9bb0c3;cursor:pointer;user-select:none;
+}
+.chip-btn b{ color:#e6eef6 }
+
+/* menu do chip */
+.chip-menu{
+  position:absolute; top:calc(100% + 6px); left:0; min-width:160px;
+  background:#0b0f14; border:1px solid #1b2431; border-radius:10px; padding:6px;
+  display:none; z-index:10; box-shadow:0 10px 30px rgba(0,0,0,.35);
+}
+.chip-menu.open{ display:block; }
+.chip-menu button{
+  width:100%; text-align:left; background:#0c121b; color:#e6eef6;
+  border:1px solid #223044; border-radius:8px; padding:8px 10px; margin:4px 0;
+  cursor:pointer;
+}
+.chip-menu button:hover{ background:#0f1622; }
+
+
+
+
+
+
+
+
+
+
+
+/* card base */
+.player-card { position: relative; overflow: hidden; border-radius: 14px; }
+
+/* avatar por cima */
+.player-card img.player-avatar { position: relative; z-index: 2; box-shadow: 0 4px 14px rgba(0,0,0,.35); }
+
+/* overlay atrás do avatar */
+.games-overlay{
+  position:absolute; inset:0; z-index:1;
+  padding:14px;
+  display:grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap:10px;
+  align-content:start;
+  opacity:0; transform:scale(.98);
+  transition:opacity .28s ease, transform .28s ease;
+  pointer-events:none;
+  background: radial-gradient(transparent 28%, rgba(0,0,0,.50));
+  backdrop-filter: blur(6px);          /* +blur */
+}
+
+/* aparece no hover */
+.player-card:hover .games-overlay{ opacity:1; transform:scale(1); }
+
+/* cartas */
+.game-card{
+  display:flex; align-items:center; gap:8px;
+  background: linear-gradient(180deg, rgba(255,255,255,.14), rgba(255,255,255,.06));
+  border: 1px solid rgba(255,255,255,.18);
+  border-radius: 12px; padding:8px 10px;
+  color:#fff; font-weight:700; text-shadow:0 1px 2px #000;
+  box-shadow: 0 8px 18px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.12);
+  transform: translateY(8px) scale(.96);
+  opacity:0; animation: gameCardIn .45s ease forwards;
+}
+
+/* entrada em cascata */
+.games-overlay .game-card:nth-child(1){ animation-delay:.02s }
+.games-overlay .game-card:nth-child(2){ animation-delay:.06s }
+.games-overlay .game-card:nth-child(3){ animation-delay:.10s }
+.games-overlay .game-card:nth-child(4){ animation-delay:.14s }
+.games-overlay .game-card:nth-child(5){ animation-delay:.18s }
+.games-overlay .game-card:nth-child(6){ animation-delay:.22s }
+
+.game-card img{ width:22px; height:22px; border-radius:5px; object-fit:cover; flex:0 0 22px; }
+
+/* texto com reticências */
+.game-card .tag{
+  max-width: 92px;                /* ajuste fino conforme card */
+  overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+}
+
+/* feedback no hover */
+.player-card:hover .game-card{ filter: drop-shadow(0 2px 6px rgba(0,0,0,.35)); }
+.game-card:hover{ transform: translateY(0) scale(1.02); }
+
+/* máscara de vinheta das bordas (opcional) */
+.player-card::after{
+  content:""; position:absolute; inset:0; pointer-events:none;
+  background: radial-gradient(120% 120% at 50% -10%, transparent 50%, rgba(0,0,0,.25) 80%);
+  z-index: 1;
+}
+
+@keyframes gameCardIn { to { transform: translateY(0) scale(1); opacity:1; } }
+
+
         .pro-badge {
             display: inline-block;
             font-weight: bold;
@@ -62,22 +192,68 @@
 
 
 
-.player-name {
-    background-color: rgba(0, 0, 0, 0.6); /* Fundo escuro */
-    padding: 6px 12px;
-    border-radius: 8px;
-    font-size: 20px;
-    font-weight: bold;
-    color: white;
-    text-shadow: 1px 1px 3px black;
-    display: inline-block;
-}
+          .player-name {
+              background-color: rgba(0, 0, 0, 0.6); /* Fundo escuro */
+              padding: 6px 12px;
+              border-radius: 8px;
+              font-size: 20px;
+              font-weight: bold;
+              color: white;
+              text-shadow: 1px 1px 3px black;
+              display: inline-block;
+          }
 
     </style>
 
     <div id="players-container" style="display: flex; flex-wrap: wrap; justify-content: center; gap: 20px;"></div>
+<!-- BEGIN: Modal de Conquistas -->
+<div id="achv-modal" style="position:fixed; inset:0; display:none; place-items:center; background:rgba(0,0,0,.65); z-index:9999;">
+  <div style="width:min(1200px, 96vw); height:min(92vh, 980px); background:#0b0f14; border:1px solid #1b2431; border-radius:14px; overflow:hidden; position:relative; display:flex; flex-direction:column;">
+    <header style="padding:12px 16px; border-bottom:1px solid #1b2431; display:flex; flex-wrap:wrap; gap:10px; align-items:center; background:#0b0f14c0; backdrop-filter: blur(6px);">
+      <button id="achv-close" title="Fechar"
+        style="margin-right:6px;background:#0c121b; color:#e6eef6; border:1px solid #223044; border-radius:10px; padding:8px 10px; cursor:pointer">✕</button>
+      <div style="font-weight:700; font-size:16px" id="achv-title">Conquistas — BFV</div>
+      <div style="color:#9bb0c3; font-size:13px" id="achv-sub"></div>
 
-<script>
+      <div style="margin-left:auto; display:flex; gap:8px; flex-wrap:wrap">
+        <input id="achv-q" type="search" placeholder="Buscar por nome ou descrição…" style="padding:10px 12px;border:1px solid #223044;background:#0c121b;color:#e6eef6;border-radius:10px;min-width:260px;outline:none">
+        <button class="achv-btn achv-active" data-filter="all" style="cursor:pointer;border:1px solid #223044;background:#0c121b;color:#e6eef6;border-radius:10px;padding:10px 12px">Todas</button>
+        <button class="achv-btn" data-filter="won" style="cursor:pointer;border:1px solid #223044;background:#0c121b;color:#e6eef6;border-radius:10px;padding:10px 12px">Conquistadas</button>
+        <button class="achv-btn" data-filter="pending" style="cursor:pointer;border:1px solid #223044;background:#0c121b;color:#e6eef6;border-radius:10px;padding:10px 12px">Pendentes</button>
+      </div>
+    </header>
+
+    <div style="padding:14px; overflow:auto; flex:1;">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+          <span class="chip-btn">ID: <b id="chipId">—</b></span>
+
+          <!-- chip “Jogo” com dropdown -->
+          <span class="chip-btn" id="chipGameWrap">
+            Jogo: <b id="chipGame">BFV</b>
+            <svg width="14" height="14" viewBox="0 0 24 24" style="opacity:.7">
+              <path fill="currentColor" d="M7 10l5 5 5-5z"/>
+            </svg>
+            <div class="chip-menu" id="chipGameMenu"></div>
+          </span>
+
+          <span class="chip-btn">Locale: <b id="chipLoc">pt-br</b></span>
+        </div>
+
+      <section style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px">
+        <div class="achv-stat"><div class="n" id="countAll">0</div><div>Total</div></div>
+        <div class="achv-stat"><div class="n" id="countWon">0</div><div>Conquistadas</div></div>
+        <div class="achv-stat"><div class="n" id="countPending">0</div><div>Pendentes</div></div>
+      </section>
+
+      <div id="achv-status" style="display:none;padding:14px;border:1px dashed #2b394d;background:#0d1420;border-radius:12px;color:#c2d1e0"></div>
+      <section id="achv-grid" class="achv-grid"></section>
+    </div>
+  </div>
+</div>
+<!-- END: Modal de Conquistas -->
+
+
+<script data-cfasync="false">
 let pendingEaIds = [];
 let intervalStarted = false;
 
@@ -95,7 +271,6 @@ async function fetchJson(url, opts = {}){
   }
 }
 
-/* 1) Busca EAIDs + userIds (suporta variações) */
 async function fetchEaIds(){
   const url = "https://rip-bf5.com.br/login/account/members/";
   const data = await fetchJson(url, { credentials: "include" });
@@ -113,59 +288,68 @@ async function fetchEaIds(){
     return [];
   }
 
-  // mapeia com segurança (userId pode estar faltando)
+
   return ea_ids.map((ea_id, i) => ({
     ea_id,
     user_id: Array.isArray(userIds) ? (userIds[i] ?? null) : (userIds || null)
   }));
 }
 
-/* 2) Converte EAID → userId (fallback) */
 async function resolveUserIdFromEAID(eaId){
   const url = `https://rip-bf5.com.br/api/eaid/?EAID=${encodeURIComponent(eaId)}`;
   const data = await fetchJson(url, { credentials: "include" });
-  // Ajuste conforme retorno real da sua API:
-  // Ex.: { success:true, player_id:"1016126611454" }
   const pid = data?.player_id || data?.userId || data?.id || null;
   if(!pid) console.warn("⚠️ Sem player_id no /api/eaid/ para", eaId, data);
   return pid;
 }
 
-/* 3) Fallback GameTools para nome/avatar (se player-global falhar) */
 async function fetchFromGameToolsByPlayerId(userId){
   const url = `https://api.gametools.network/bfglobal/games/?playerid=${encodeURIComponent(userId)}`;
   const data = await fetchJson(url);
   if(!data) return null;
-  // Tenta achar nome/avatar em possíveis campos
   const userName = data.userName || data.username || data.name;
   const avatar   = data.avatar || data.avatarUrl || data.image;
   return (userName || avatar) ? { userName, avatar, games: [] } : null;
 }
 
-/* 4) Busca detalhes do jogador (usa userId; se faltar, tenta resolver por EAID) */
 async function fetchPlayerDetails(eaId, userId){
   try{
-    let uid = userId;
-    if(!uid){
-      uid = await resolveUserIdFromEAID(eaId);
-      if(!uid) return null;
-    }
+    let uid = userId || await resolveUserIdFromEAID(eaId);
+    if(!uid) return null;
 
-    const url = `https://rip-bf5.com.br/api/player-global/get-user/?userId=${encodeURIComponent(uid)}&GetGames=true&GetGames-tags=true`;
+    // Só tags (com imagem) para reduzir payload
+    const url = `https://rip-bf5.com.br/api/player-global/get-user/?userId=${encodeURIComponent(uid)}&GetGames-tags=true`;
     const data = await fetchJson(url, { method: "GET", credentials: "include" });
 
     if (data?.error || !Array.isArray(data?.users) || data.users.length === 0) {
-      console.warn("⚠️ player-global falhou, tentando GameTools para", uid);
       const gt = await fetchFromGameToolsByPlayerId(uid);
       return gt ? gt : null;
     }
 
     const player = data.users[0] || {};
-    return {
-      userName: player.displayName || player.nickname || player.uniqueName || player.name,
-      avatar: player.avatarUrl || player.avatar || null,
-      games: Array.isArray(player.games) ? player.games.map(g => g?.name || g?.title || g).filter(Boolean) : []
-    };
+
+    // normaliza: aceitamos string ou {tag,image} ou {title,image}
+    const gamesObjs = Array.isArray(player.games) ? player.games
+      .map(g => {
+        if (typeof g === 'string')    return { tag: g, image: null };
+        if (g && typeof g === 'object') {
+          const tag = g.tag || g.name || g.title || '';
+          if (!tag) return null;
+          return { tag, image: g.image || null };
+        }
+        return null;
+      })
+      .filter(Boolean) : [];
+
+return {
+  userName: player.displayName || player.nickname || player.uniqueName || player.name,
+  avatar: player.avatarUrl || player.avatar || null,
+  games: gamesObjs.map(x => x.tag),
+  gamesObjs,
+  // >>> NOVO: ID para usar no modal (prioriza 'id', cai pra 'userId' e por fim o uid já resolvido)
+  userId: player.id || player.userId || uid
+};
+
 
   }catch(err){
     console.error(`❌ Erro ao buscar jogador uid=${userId} ea=${eaId}:`, err);
@@ -173,7 +357,7 @@ async function fetchPlayerDetails(eaId, userId){
   }
 }
 
-/* 5) Permissões/Config */
+
 async function fetchPermissions(eaId){
   const data = await fetchJson(`https://rip-bf5.com.br/api/get-permissions/?ea_id=${encodeURIComponent(eaId)}`);
   return {
@@ -182,54 +366,111 @@ async function fetchPermissions(eaId){
   };
 }
 
-/* 6) Placeholder inicial */
 function displayPlayerPlaceholder(eaId){
   const container = byId('players-container');
   const card = document.createElement('div');
   card.id = `player-${eaId}`;
-  card.style.cssText = "background: rgba(0,0,0,0.5); border-radius: 10px; padding: 10px; color: white; width: 300px; text-align: center; min-height: 180px; display:flex; flex-direction:column; align-items:center; justify-content:center;";
+  card.style.cssText = "background: rgba(0,0,0,0.5); border-radius: 10px; padding: 10px; color: white; width: 250px; text-align: center; min-height: 180px; display:flex; flex-direction:column; align-items:center; justify-content:center;";
   card.innerHTML = `<h2>Carregando...</h2>`;
   container.appendChild(card);
   if(!pendingEaIds.includes(eaId)) pendingEaIds.push(eaId);
 }
 
-/* 7) Render final do card (limpa antes de montar pra evitar duplicatas) */
 async function updatePlayerDetails(eaId, data){
   const card = byId(`player-${eaId}`);
   if(!card) return;
 
-  // limpa tudo
+  // zera e marca como card com overlay
   card.innerHTML = "";
+  card.classList.add('player-card');
 
+  // título
   const h2 = document.createElement('h2');
   h2.innerHTML = `<span class="player-name">${data.userName || `ID: ${eaId}`}</span>`;
   card.appendChild(h2);
 
+  // avatar (fica acima do overlay)
   const avatarUrl = data.avatar || 'https://via.placeholder.com/100';
   const img = document.createElement('img');
   img.src = avatarUrl;
   img.alt = `Avatar de ${data.userName || 'Jogador'}`;
+  img.className = "player-avatar";
   img.style.cssText = "border-radius: 50%; width: 100px; height: 100px; margin-top: 10px;";
   card.appendChild(img);
 
-  const gamesList = (Array.isArray(data.games) ? data.games : []).join(", ");
-  const pGames = document.createElement('p');
-  pGames.textContent = `Jogos: ${gamesList || "Nenhum"}`;
-  pGames.className = "games-list";
-  pGames.style.margin = "10px 0 0";
-  card.appendChild(pGames);
+  // ===== overlay de jogos (aparece no hover, atrás do avatar) =====
+  const overlay = document.createElement('div');
+  overlay.className = 'games-overlay';
 
-  // badge + background (se tiver permissão)
+  // aceita data.gamesObjs ({tag,image}) ou data.games (strings)
+  const gamesSrc = Array.isArray(data.gamesObjs) && data.gamesObjs.length
+    ? data.gamesObjs
+    : (Array.isArray(data.games) ? data.games.map(t => ({ tag: t, image: null })) : []);
+
+  if (gamesSrc.length) {
+    gamesSrc.forEach((g, idx) => {
+      const el = document.createElement('div');
+      el.className = 'game-card';
+      el.style.animationDelay = (0.04 * idx) + 's';
+      if (g.image) {
+        const im = document.createElement('img');
+        im.src = g.image;
+        im.alt = g.tag || 'Game';
+        im.loading = 'lazy';
+        el.appendChild(im);
+      }
+      el.appendChild(document.createTextNode(g.tag || 'Game'));
+      overlay.appendChild(el);
+    });
+  } else {
+    const empty = document.createElement('div');
+    empty.className = 'game-card';
+    empty.textContent = 'Sem jogos';
+    overlay.appendChild(empty);
+  }
+  card.appendChild(overlay);
+
+// garante o userId (pelo EAID)
+// 1) garanta o userId vindo do fetchPlayerDetails (que já pegou do get-user)
+//    se por algum motivo não vier, tenta resolver via EAID como fallback
+let uid = data.userId;
+if (!uid) {
+  uid = await resolveUserIdFromEAID(eaId);
+}
+
+// monta as TAGS puras do jogador para o seletor
+const pureTags = extractPureTags(data.gamesObjs || data.games || []);
+const initialTag = pureTags[0] || 'BFV';
+
+// qualquer game-card abre o modal usando TAGS puras
+overlay.querySelectorAll('.game-card').forEach(el=>{
+  el.addEventListener('click', (ev)=>{
+    ev.stopPropagation();
+    if (!uid) { alert('Não foi possível resolver o ID do jogador.'); return; }
+    openAchievementsModal({
+      userId: uid,
+      userName: (data.userName || ''),
+      locale: 'pt-br',
+      initialTag,
+      tagList: pureTags
+    });
+  }, { passive:true });
+});
+
+
+
+
+
+  // ===== badge PRO + background condicional =====
   const { permissions, config } = await fetchPermissions(eaId);
-  if (permissions[3] === 1) {
-    const anima = Number(config.anima) || 1;
+  if (Array.isArray(permissions) && permissions[3] === 1) {
+    const anima = Number(config?.anima) || 1;
     const proBadge = document.createElement('div');
     proBadge.className = `pro-badge anima-${anima}`;
     proBadge.textContent = '🔥 PRO';
     card.appendChild(proBadge);
 
-    // aplica bg se for imagem conhecida
-    const bg = (config.background || "").trim();
+    const bg = (config?.background || "").trim();
     if (/\.(png|jpg|jpeg|gif|webp)$/i.test(bg)) {
       const bgUrl = `https://choriper.api-rip-bf5.org/upload/upload/view/${bg}`;
       card.style.backgroundImage = `url('${bgUrl}')`;
@@ -238,16 +479,15 @@ async function updatePlayerDetails(eaId, data){
     }
   }
 
-  // remove da fila pendente
+  // remove da fila de pendentes
   pendingEaIds = pendingEaIds.filter(id => id !== eaId);
 }
 
-/* 8) Fluxo principal */
+
 async function loadPlayers(){
   const players = await fetchEaIds();
   const container = byId('players-container');
 
-  // sem players → mostra aviso
   if(!players || players.length === 0){
     container.innerHTML = `<div style="color:#fff; font-weight:bold;">Nenhum jogador encontrado. Verifique se está logado e se /login/account/members/ está retornando dados.</div>`;
     return;
@@ -256,10 +496,8 @@ async function loadPlayers(){
   const successEaIds = [];
   const failedEaIds = [];
 
-  // placeholders
   for (const { ea_id } of players) displayPlayerPlaceholder(ea_id);
 
-  // resolve todos em paralelo
   await Promise.all(players.map(async ({ ea_id, user_id }) => {
     const data = await fetchPlayerDetails(ea_id, user_id);
     if (data && (data.userName || data.avatar)) {
@@ -270,7 +508,6 @@ async function loadPlayers(){
     }
   }));
 
-  // manda os falhados para o fim (visualmente)
   for (const id of failedEaIds) {
     const div = byId(`player-${id}`);
     if (div) container.appendChild(div);
@@ -278,14 +515,12 @@ async function loadPlayers(){
 
   console.log(`✅ Sucesso: ${successEaIds.length} | ❌ Falha: ${failedEaIds.length}`);
 
-  // inicia o retry uma única vez
   if(!intervalStarted){
     intervalStarted = true;
     setInterval(retryPendingPlayers, 16000);
   }
 }
 
-/* 9) Recarrega só os pendentes */
 async function retryPendingPlayers(){
   if (pendingEaIds.length === 0) return;
   console.log(`🔁 Tentando recarregar ${pendingEaIds.length} jogadores...`);
@@ -302,8 +537,222 @@ async function retryPendingPlayers(){
   }
 }
 
-// inicia
-loadPlayers();
-</script>
+/* ===== Modal helpers ===== */
+/* ===== estado do modal (novo) ===== */
+let ACHV_DATA = [];
+let ACHV_FILTER = 'all';
+let ACHV_QUERY = '';
 
-</body>
+function achvSetStatus(msg, isError=false){
+  const box = document.getElementById('achv-status');
+  box.style.display = msg ? 'block' : 'none';
+  box.style.borderStyle = isError ? 'solid' : 'dashed';
+  box.textContent = msg || '';
+}
+
+function achvRender(){
+  const grid = document.getElementById('achv-grid');
+  const countAll = document.getElementById('countAll');
+  const countWon = document.getElementById('countWon');
+  const countPending = document.getElementById('countPending');
+
+  const total = ACHV_DATA.length;
+  const wonTotal = ACHV_DATA.filter(a => (a.awardCount||0) > 0).length;
+  const pendTotal = total - wonTotal;
+
+  countAll.textContent = total;
+  countWon.textContent = wonTotal;
+  countPending.textContent = pendTotal;
+
+  let items = ACHV_DATA.slice();
+
+  const text = (ACHV_QUERY||'').trim().toLowerCase();
+  if (text) {
+    items = items.filter(a=>{
+      const hay = (a.name+' '+(a.description||'')).toLowerCase();
+      return hay.includes(text);
+    });
+  }
+
+  if (ACHV_FILTER === 'won') items = items.filter(a => (a.awardCount||0) > 0);
+  if (ACHV_FILTER === 'pending') items = items.filter(a => (a.awardCount||0) === 0);
+
+  grid.innerHTML = '';
+  if (items.length === 0){
+    achvSetStatus('Nenhuma conquista encontrada para os filtros atuais.');
+    return;
+  }
+  achvSetStatus('');
+
+  const df = document.createDocumentFragment();
+  items.forEach(a=>{
+    const el = document.createElement('article');
+    el.className = 'achv-card';
+    const badgeOk = (a.awardCount||0) > 0;
+    const when = a.date ? new Date(a.date).toLocaleString('pt-BR') : null;
+    el.innerHTML = `
+      <div class="achv-icon">${a.icon ? `<img src="${a.icon}" alt="">` : '🏆'}</div>
+      <div>
+        <h3 style="margin:0 0 4px;font-size:15px">${a.name || '(sem título)'}</h3>
+        <div style="color:#b9c9d8">${a.description || ''}</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
+          <span class="achv-badge ${badgeOk?'good':''}">${badgeOk ? 'Conquistada' : 'Pendente'}</span>
+          ${when ? `<span class="achv-badge">Em: ${when}</span>` : ''}
+        </div>
+      </div>
+    `;
+    df.appendChild(el);
+  });
+  grid.appendChild(df);
+}
+
+function normalizeAchievements(json){
+  const out = [];
+  const sets = json?.data?.achievements || [];
+  for (const set of sets) {
+    const list = set?.achievements || [];
+    for (const a of list) {
+      const icon = a?.images?.[1]?.path || a?.images?.[0]?.path || null;
+      out.push({
+        id: a.id || '',
+        name: a.name || '',
+        description: a.description || '',
+        awardCount: a.awardCount ?? 0,
+        date: a.date || null,
+        icon
+      });
+    }
+  }
+  return out;
+}
+
+/* ===== Helpers do modal baseados em TAG pura ===== */
+
+// Normaliza a lista de jogos a partir de gamesObjs ou games (string/tag)
+function extractPureTags(gamesObjsOrStrings){
+  const arr = Array.isArray(gamesObjsOrStrings) ? gamesObjsOrStrings : [];
+  const tags = arr.map(g => {
+    if (typeof g === 'string') return g.trim();
+    if (g && typeof g === 'object') return String(g.tag || g.name || g.title || '').trim();
+    return '';
+  }).filter(Boolean);
+  return tags.filter((t, i) => tags.indexOf(t) === i); // únicos
+}
+
+// Monta/atualiza o dropdown do chip “Jogo” com TAGS puras
+function buildTagMenu(menuEl, onPick, tagList){
+  menuEl.innerHTML = '';
+  tagList.forEach(tag => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = tag;               // usa a TAG pura
+    btn.addEventListener('click', () => { onPick(tag); menuEl.classList.remove('open'); });
+    menuEl.appendChild(btn);
+  });
+}
+
+// Busca + render usando SEMPRE game = TAG PURA
+async function fetchAndRenderByTag({ userId, tag, locale='pt-br' }){
+  achvSetStatus('Carregando…');
+  ACHV_DATA = [];
+  achvRender();
+
+  const url = `https://rip-bf5.com.br/api/player-global/ownedGameAchievements/?id=${encodeURIComponent(userId)}&game=${encodeURIComponent(tag)}&locale=${encodeURIComponent(locale)}`;
+
+  try{
+    const res = await fetch(url);
+    const raw = await res.text();
+    let json = null;
+    try { json = JSON.parse(raw); } catch(e){ throw new Error(raw.slice(0,300)); }
+    if(!res.ok) throw new Error(json?.error || `HTTP ${res.status}`);
+
+    ACHV_DATA = normalizeAchievements(json);
+    achvSetStatus(ACHV_DATA.length ? '' : 'Nenhuma conquista retornada.');
+    achvRender();
+  }catch(err){
+    achvSetStatus('Erro: ' + (err?.message || err), true);
+  }
+}
+
+
+
+function openAchievementsModal({ userId, userName='', locale='pt-br', initialTag='BFV', tagList=[] }){
+  const modal  = document.getElementById('achv-modal');
+  const title  = document.getElementById('achv-title');
+  const sub    = document.getElementById('achv-sub');
+  const chipId = document.getElementById('chipId');
+  const chipLoc= document.getElementById('chipLoc');
+  const chipGame= document.getElementById('chipGame');
+  const chipGameWrap = document.getElementById('chipGameWrap');
+  const chipGameMenu = document.getElementById('chipGameMenu');
+  const qInput = document.getElementById('achv-q');
+  const btns = Array.from(document.querySelectorAll('.achv-btn'));
+
+  const tags = (tagList && tagList.length) ? tagList : [initialTag];
+  const currentTag = tags.includes(initialTag) ? initialTag : tags[0];
+
+  title.textContent = `Conquistas — ${currentTag}`;
+  sub.textContent   = userName ? `Jogador: ${userName} • ID: ${userId}` : `ID: ${userId}`;
+  chipId.textContent = userId;
+  chipLoc.textContent = locale || 'pt-br';
+  chipGame.textContent = currentTag;
+
+  ACHV_DATA = []; ACHV_FILTER = 'all'; ACHV_QUERY = '';
+  qInput.value = '';
+  btns.forEach(b=>b.classList.remove('achv-active'));
+  (btns.find(b=>b.dataset.filter==='all')||btns[0]).classList.add('achv-active');
+
+  qInput.oninput = (e)=>{ ACHV_QUERY = e.target.value; achvRender(); };
+  btns.forEach(b=>{
+    b.onclick = ()=>{ btns.forEach(x=>x.classList.remove('achv-active')); b.classList.add('achv-active'); ACHV_FILTER = b.dataset.filter; achvRender(); };
+  });
+
+  buildTagMenu(chipGameMenu, (pickedTag)=>{
+    chipGame.textContent = pickedTag;
+    title.textContent = `Conquistas — ${pickedTag}`;
+    fetchAndRenderByTag({ userId, tag: pickedTag, locale });
+  }, tags);
+
+  chipGameWrap.onclick = (ev)=>{ ev.stopPropagation(); chipGameMenu.classList.toggle('open'); };
+  document.addEventListener('click', (ev)=>{ if(!chipGameWrap.contains(ev.target)) chipGameMenu.classList.remove('open'); }, { once:true });
+
+  modal.style.display = 'grid';
+  fetchAndRenderByTag({ userId, tag: currentTag, locale });
+}
+
+
+
+function closeAchievementsModal(){ document.getElementById('achv-modal').style.display='none'; }
+document.addEventListener('click', (e)=>{
+  if (e.target && e.target.id === 'achv-close') closeAchievementsModal();
+  if (e.target && e.target.id === 'achv-modal') closeAchievementsModal();
+}, true);
+
+
+(function () {
+  let started = false;
+  function start(){
+    if (started) return;
+    started = true;
+    try { loadPlayers(); } catch (e) { console.error(e); }
+  }
+
+  document.addEventListener('DOMContentLoaded', start, { once: true });
+  window.addEventListener('load', start, { once: true });
+
+  window.addEventListener('pageshow', function (ev) {
+    start();
+  }, { once: true });
+
+  ['pointerdown','touchstart','click','scroll','keydown'].forEach(ev => {
+    window.addEventListener(ev, start, { once: true, passive: true });
+  });
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') start();
+  }, { once: true });
+
+  setTimeout(start, 2500);
+})();
+
+</script>
