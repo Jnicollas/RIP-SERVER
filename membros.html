@@ -13,6 +13,15 @@ color: #ffffff;
 
 
 
+/* avatar desabilitado p/ clique */
+.player-avatar.avatar-noclick{
+  pointer-events: none;
+  cursor: default;
+  opacity: .9; /* opcional */
+}
+
+/* já tinha pro card vazio */
+.game-empty{ pointer-events:none; }
 
 /* permitir click no overlay quando estiver visível */
 .player-card:hover .games-overlay{
@@ -254,6 +263,10 @@ color: #ffffff;
 
 
 <script data-cfasync="false">
+  // Fallback simples de TAGs (sem imagens)
+const SHOW_DEFAULT_GAMES = true;
+const DEFAULT_TAGS = ["BFV", "BF1", "BF4", "BF6"]; // ajuste como quiser
+
 let pendingEaIds = [];
 let intervalStarted = false;
 
@@ -399,14 +412,20 @@ async function updatePlayerDetails(eaId, data){
   card.appendChild(img);
 
   // ===== overlay de jogos (aparece no hover, atrás do avatar) =====
+  // aceita data.gamesObjs ({tag,image}) ou data.games (strings) — sem fallback visual aqui
+
+
+  // cria overlay só se houver jogos reais
+  // ===== overlay de jogos (aparece no hover, atrás do avatar) =====
   const overlay = document.createElement('div');
   overlay.className = 'games-overlay';
 
-  // aceita data.gamesObjs ({tag,image}) ou data.games (strings)
-  const gamesSrc = Array.isArray(data.gamesObjs) && data.gamesObjs.length
+  // aceita data.gamesObjs ({tag,image}) ou data.games (strings) — sem fallback visual aqui
+  let gamesSrc = Array.isArray(data.gamesObjs) && data.gamesObjs.length
     ? data.gamesObjs
     : (Array.isArray(data.games) ? data.games.map(t => ({ tag: t, image: null })) : []);
 
+  // preenche overlay (cards reais OU "Sem jogos")
   if (gamesSrc.length) {
     gamesSrc.forEach((g, idx) => {
       const el = document.createElement('div');
@@ -424,29 +443,33 @@ async function updatePlayerDetails(eaId, data){
     });
   } else {
     const empty = document.createElement('div');
-    empty.className = 'game-card';
+    empty.className = 'game-card game-empty';
     empty.textContent = 'Sem jogos';
+    empty.style.opacity = '.8';
+    empty.style.cursor = 'default';
+    empty.style.pointerEvents = 'none';
     overlay.appendChild(empty);
   }
+
+  // anexa SEMPRE o overlay (com jogos ou com "Sem jogos")
   card.appendChild(overlay);
 
-// garante o userId (pelo EAID)
-// 1) garanta o userId vindo do fetchPlayerDetails (que já pegou do get-user)
-//    se por algum motivo não vier, tenta resolver via EAID como fallback
-let uid = data.userId;
-if (!uid) {
-  uid = await resolveUserIdFromEAID(eaId);
-}
+  // ===== garante o userId =====
+  let uid = data.userId;
+  if (!uid) uid = await resolveUserIdFromEAID(eaId);
 
-// monta as TAGS puras do jogador para o seletor
-const pureTags = extractPureTags(data.gamesObjs || data.games || []);
-const initialTag = pureTags[0] || 'BFV';
+  // ===== TAGs para o MODAL (com fallback) =====
+  let pureTags = extractPureTags(data.gamesObjs || data.games || []);
+  if ((!pureTags || pureTags.length === 0) && SHOW_DEFAULT_GAMES) {
+    pureTags = [...DEFAULT_TAGS];
+  }
+  const initialTag = pureTags[0] || 'BFV';
 
-// qualquer game-card abre o modal usando TAGS puras
-overlay.querySelectorAll('.game-card').forEach(el=>{
-  el.addEventListener('click', (ev)=>{
+  // abre modal
+  const openModal = (ev) => {
     ev.stopPropagation();
     if (!uid) { alert('Não foi possível resolver o ID do jogador.'); return; }
+    if (!pureTags.length) { alert('Sem jogos disponíveis.'); return; }
     openAchievementsModal({
       userId: uid,
       userName: (data.userName || ''),
@@ -454,12 +477,19 @@ overlay.querySelectorAll('.game-card').forEach(el=>{
       initialTag,
       tagList: pureTags
     });
-  }, { passive:true });
-});
+  };
 
-
-
-
+  // se houver jogos visíveis, clicar no game-card abre o modal
+  if (gamesSrc.length) {
+    overlay.querySelectorAll('.game-card').forEach(el=>{
+      el.addEventListener('click', openModal, { passive:true });
+    });
+  } else if (pureTags.length) {
+    // sem jogos no card: permite abrir o modal clicando no avatar
+    img.style.cursor = 'pointer';
+    img.title = 'Ver conquistas';
+    img.addEventListener('click', openModal, { passive:true });
+  }
 
   // ===== badge PRO + background condicional =====
   const { permissions, config } = await fetchPermissions(eaId);
@@ -482,6 +512,7 @@ overlay.querySelectorAll('.game-card').forEach(el=>{
   // remove da fila de pendentes
   pendingEaIds = pendingEaIds.filter(id => id !== eaId);
 }
+
 
 
 async function loadPlayers(){
